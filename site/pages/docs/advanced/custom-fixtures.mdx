@@ -1,0 +1,184 @@
+# Custom Fixtures
+
+Integrate performance testing with your existing Playwright fixtures.
+
+## The Problem
+
+When using `createPerformanceTest()`, only `page` and `performance` fixtures are passed to your test function:
+
+```ts
+test.performance({ ... })('title', async ({ page, performance }) => {
+  // Only page and performance available
+  // Your custom fixtures (pageObjects, mockApi, etc.) are not here
+});
+```
+
+## Solution: Custom Wrapper
+
+Use the exported building blocks to create a custom wrapper that preserves your fixtures.
+
+### Step 1: Create the Wrapper
+
+```ts
+// tests/performance.setup.ts
+import type { Page } from '@playwright/test';
+import {
+  addConfigurationAnnotation,
+  createConfiguredTestInfo,
+  createPerformanceInstance,
+  PerformanceTestRunner,
+  type BasePerformanceFixtures,
+  type ConfiguredTestInfo,
+  type PerformanceInstance,
+  type TestConfig,
+} from 'react-performance-tracking/playwright';
+
+// Import your existing test setup with custom fixtures
+import { test as baseTest } from './fixtures';
+
+// Define your custom fixtures type
+type MyCustomFixtures = {
+  page: Page;
+  pageObjects: ReturnType<typeof createPageObjects>;
+  mockApi: MockApiHelper;
+};
+
+type PerformanceFixtures = MyCustomFixtures & {
+  performance: PerformanceInstance;
+};
+
+type PerformanceTestFunction = (
+  fixtures: PerformanceFixtures,
+  testInfo: ConfiguredTestInfo,
+) => Promise<void> | void;
+
+type LibraryTestInfo = Parameters<typeof createConfiguredTestInfo>[0];
+
+/**
+ * Custom performance wrapper that preserves all your fixtures
+ */
+const performance = (testConfig: TestConfig) => {
+  return (title: string, testFn: PerformanceTestFunction) => {
+    return baseTest(title, async ({ page, pageObjects, mockApi }, testInfo) => {
+      // Cast for library compatibility
+      const libraryPage = page as unknown as BasePerformanceFixtures['page'];
+      const libraryTestInfo = testInfo as unknown as LibraryTestInfo;
+
+      // Use library's config resolution
+      const configuredTestInfo = createConfiguredTestInfo(
+        libraryTestInfo,
+        testConfig,
+        title
+      );
+
+      // Add configuration annotation for test reports
+      addConfigurationAnnotation(libraryTestInfo, configuredTestInfo);
+
+      // Create performance instance
+      const performanceInstance = createPerformanceInstance(libraryPage);
+
+      // Combine all fixtures
+      const fixtures: PerformanceFixtures = {
+        page,
+        pageObjects,
+        mockApi,
+        performance: performanceInstance,
+      };
+
+      // Use library's runner
+      const runner = new PerformanceTestRunner(
+        libraryPage,
+        { page: libraryPage, performance: performanceInstance },
+        configuredTestInfo,
+      );
+
+      await runner.execute(async () => {
+        await testFn(fixtures, configuredTestInfo);
+      });
+    });
+  };
+};
+
+export const test = Object.assign(baseTest, { performance });
+export type { TestConfig };
+```
+
+### Step 2: Use in Tests
+
+```ts
+// tests/my-page.perf.spec.ts
+import { test } from './performance.setup';
+
+test.describe('My Page Performance', () => {
+  test.performance({
+    iterations: 3,
+    thresholds: {
+      base: {
+        profiler: { '*': { duration: 500, rerenders: 20 } },
+      },
+    },
+  })('page load with custom fixtures', async ({
+    page,
+    pageObjects,
+    mockApi,
+    performance
+  }) => {
+    // Use your custom fixtures!
+    await mockApi.stubEndpoint('/api/data', { items: [] });
+    await pageObjects.homePage.navigate();
+    await performance.init();
+  });
+});
+```
+
+## Building Blocks Reference
+
+| Export | Description |
+|--------|-------------|
+| `createPerformanceInstance` | Creates the performance fixture for a page |
+| `createConfiguredTestInfo` | Resolves test config with environment-aware thresholds |
+| `addConfigurationAnnotation` | Adds config metadata to test reports |
+| `PerformanceTestRunner` | Orchestrates warmup, iterations, and assertions |
+| `BasePerformanceFixtures` | Type for the base fixture structure |
+| `ConfiguredTestInfo` | Type for resolved test configuration |
+
+## What PerformanceTestRunner Does
+
+The runner handles:
+
+1. **Setup** – Starts CDP features (throttling, FPS, memory)
+2. **Warmup** – Runs an excluded warmup iteration if configured
+3. **Iterations** – Runs the test multiple times if configured
+4. **Assertions** – Validates thresholds with buffers
+5. **Cleanup** – Stops CDP sessions and creates artifacts
+
+By using the runner, your custom wrapper gets all this behavior automatically.
+
+## Alternative: Minimal Wrapper
+
+If you don't need warmup, iterations, or CDP features, use a simpler approach:
+
+```ts
+const performance = (testConfig: TestConfig) => {
+  return (title: string, testFn: PerformanceTestFunction) => {
+    return baseTest(title, async ({ page, pageObjects }, testInfo) => {
+      const perf = createPerformanceInstance(page);
+
+      await testFn({ page, pageObjects, performance: perf }, testInfo);
+
+      // Manual assertion (basic)
+      const state = await page.evaluate(() => window.__REACT_PERFORMANCE__);
+      // ... validate state against testConfig.thresholds
+    });
+  };
+};
+```
+
+:::warning
+The minimal approach loses warmup, iterations, CDP features, and artifact generation. Use `PerformanceTestRunner` for full functionality.
+:::
+
+## Related
+
+- [Playwright Setup](/docs/guides/playwright-setup) – Basic setup
+- [Architecture](/docs/advanced/architecture) – Internal design

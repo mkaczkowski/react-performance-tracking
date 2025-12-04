@@ -1,0 +1,80 @@
+# Introduction
+
+**react-performance-tracking** automates React render performance checks in Playwright. Capture React Profiler metrics, apply CPU throttling, run warmups, enforce budgets, and catch performance regressions before they hit production.
+
+## Why Use This?
+
+- **Catch performance regressions early** – Detect slow renders before they reach production
+- **Real-world conditions** – Test with CPU throttling, network throttling, and device simulation
+- **CI/CD integration** – Fail builds automatically when performance budgets are exceeded
+- **Comprehensive metrics** – Track React renders, FPS, memory usage, and Core Web Vitals
+- **Zero boilerplate** – Drop-in Playwright integration with minimal configuration
+
+## Features
+
+| Feature | Description | Browser Support |
+|---------|-------------|-----------------|
+| 📊 React Profiler | Collect real render metrics via React's Profiler API | All |
+| 🎭 Playwright Integration | `test.performance()` helper and `performance` fixture | All |
+| 🧩 Component Profiling | Track per-component metrics with multiple profilers | All |
+| 🎞️ FPS Tracking | Measure average FPS via Chrome DevTools Protocol | Chromium |
+| 🧠 Memory Tracking | Track heap growth to detect memory leaks | Chromium |
+| 📈 Web Vitals | Capture LCP, INP, CLS via PerformanceObserver | All |
+| 🐢 CPU Throttling | Simulate slower devices | Chromium |
+| 🌐 Network Throttling | Simulate slow networks (3G/4G presets) | Chromium |
+| ⏱️ Custom Metrics | Track custom performance marks and measures | All |
+| 🔥 Warmup Runs | Reduce cold-start noise (default on CI) | All |
+| 🔄 Multiple Iterations | Run tests multiple times with percentile metrics | All |
+| 📊 Trace Export | Export Chrome DevTools traces for flamegraph | Chromium |
+
+## How It Works
+
+The library has a **two-layer architecture**:
+
+### React Layer (Browser)
+Wrap your app with `PerformanceProvider` and use `<Profiler>` components to collect render metrics. The provider exposes a `window.__REACT_PERFORMANCE__` store that aggregates metrics globally and per-component.
+
+### Playwright Layer (Node.js)
+Use `createPerformanceTest()` to extend Playwright with `test.performance()`. The test runner orchestrates: setup → warmup → test → assertions → cleanup. It communicates with the browser via `page.evaluate()` to retrieve metrics.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Playwright Test (Node.js)                          │
+│  ┌──────────────────────────────────────────────┐   │
+│  │  test.performance({ thresholds: {...} })     │   │
+│  │  ├─ Setup (throttling, features)             │   │
+│  │  ├─ Warmup iteration (if enabled)            │   │
+│  │  ├─ Test iterations                          │   │
+│  │  ├─ Assertions (thresholds + buffers)        │   │
+│  │  └─ Cleanup (CDP sessions)                   │   │
+│  └──────────────────────────────────────────────┘   │
+│                      │                              │
+│                      │ page.evaluate()              │
+│                      ▼                              │
+│  ┌──────────────────────────────────────────────┐   │
+│  │  Browser (window.__REACT_PERFORMANCE__)      │   │
+│  │  ├─ samples: PerformanceSample[]             │   │
+│  │  ├─ components: { [id]: ComponentMetrics }   │   │
+│  │  └─ reset: () => void                        │   │
+│  └──────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+## Requirements
+
+- **React** 18+ or 19+
+- **Playwright** 1.40+
+- **Node.js** 18+
+
+:::tip
+Some features like FPS tracking, memory tracking, CPU throttling, and network throttling require **Chromium**. Other browsers will gracefully skip these features without errors.
+:::
+
+## Next Steps
+
+Ready to get started? Follow these guides:
+
+1. [Installation](/docs/installation) – Install the package
+2. [Quick Start](/docs/quick-start) – Write your first performance test
+3. [React Setup](/docs/guides/react-setup) – Configure your React app
+4. [Playwright Setup](/docs/guides/playwright-setup) – Set up Playwright integration

@@ -1,0 +1,244 @@
+# E-Commerce Examples
+
+Performance testing patterns for e-commerce applications.
+
+## Product Page Load
+
+Test the main product page with images and details:
+
+```ts
+test.describe('E-commerce Performance', () => {
+  test.performance({
+    thresholds: {
+      base: {
+        profiler: { '*': { duration: 800, rerenders: 25 } },
+        fps: 60,
+        webVitals: {
+          lcp: 2500,  // Product image load
+          cls: 0.1,   // Layout stability
+        },
+      },
+    },
+  })('product page load', async ({ page, performance }) => {
+    await page.goto('/products/123');
+    await performance.init();
+  });
+});
+```
+
+## Add to Cart
+
+Test the add-to-cart interaction:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 150, rerenders: 5 } },
+    },
+  },
+})('add to cart interaction', async ({ page, performance }) => {
+  await page.goto('/products/123');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('button[data-testid="add-to-cart"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Image Gallery
+
+Test thumbnail navigation and image switching:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 200, rerenders: 8 } },
+      fps: 55, // Smooth image transitions
+    },
+  },
+})('image gallery interaction', async ({ page, performance }) => {
+  await page.goto('/products/123');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('.thumbnail:nth-child(2)');
+  await performance.waitUntilStable({ stabilityPeriodMs: 500 });
+});
+```
+
+## Product Variant Selection
+
+Test selecting product variants (size, color):
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 100, rerenders: 3 } },
+    },
+  },
+})('variant selection', async ({ page, performance }) => {
+  await page.goto('/products/123');
+  await performance.init();
+
+  // Select size
+  await performance.reset();
+  await page.click('[data-testid="size-large"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Cart Page
+
+Test cart with multiple items:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: {
+        '*': { duration: 600, rerenders: 20 },
+        'cart-items': { duration: 400, rerenders: 15 },
+        'cart-summary': { duration: 100, rerenders: 5 },
+      },
+    },
+  },
+})('cart page load', async ({ page, performance }) => {
+  // Pre-populate cart
+  await page.goto('/');
+  await page.click('[data-testid="add-to-cart"]');
+  await page.click('[data-testid="add-to-cart-2"]');
+
+  // Test cart page
+  await page.goto('/cart');
+  await performance.init();
+});
+```
+
+## Quantity Update
+
+Test updating item quantity in cart:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 150, rerenders: 8 } },
+    },
+  },
+})('quantity update', async ({ page, performance }) => {
+  await page.goto('/cart');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('[data-testid="increase-quantity"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Checkout Flow
+
+Test multi-step checkout with custom timing:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 1000, rerenders: 30 } },
+      webVitals: { inp: 200 }, // Quick responses to input
+    },
+  },
+})('checkout flow', async ({ page, performance }) => {
+  await page.goto('/checkout');
+  await performance.init();
+
+  // Step 1: Shipping
+  performance.mark('shipping-start');
+  await page.fill('[name="address"]', '123 Main St');
+  await page.fill('[name="city"]', 'New York');
+  await page.click('[data-testid="continue"]');
+  await performance.waitUntilStable();
+  performance.mark('shipping-end');
+
+  // Step 2: Payment
+  performance.mark('payment-start');
+  await page.fill('[name="card"]', '4111111111111111');
+  await page.click('[data-testid="continue"]');
+  await performance.waitUntilStable();
+  performance.mark('payment-end');
+
+  // Measure steps
+  const shippingTime = performance.measure('shipping-step', 'shipping-start', 'shipping-end');
+  const paymentTime = performance.measure('payment-step', 'payment-start', 'payment-end');
+
+  console.log(`Shipping: ${shippingTime}ms, Payment: ${paymentTime}ms`);
+});
+```
+
+## Product Search
+
+Test search with results rendering:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 25 } },
+      webVitals: { inp: 100 }, // Quick search response
+    },
+  },
+})('product search', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  await performance.reset();
+  await page.fill('[data-testid="search"]', 'shoes');
+  await page.waitForSelector('.search-results');
+  await performance.waitUntilStable();
+});
+```
+
+## Mobile E-commerce
+
+Test on simulated mobile device:
+
+```ts
+test.performance({
+  throttleRate: 4,               // Slower CPU
+  networkThrottling: 'fast-3g',  // 3G network
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 2000, rerenders: 30 } },
+      fps: 45,
+      webVitals: {
+        lcp: 4000,  // Higher acceptable LCP on mobile
+        inp: 300,
+        cls: 0.15,
+      },
+    },
+  },
+})('mobile product page', async ({ page, performance }) => {
+  await page.goto('/products/123');
+  await performance.init();
+});
+```
+
+## Building a Test Suite
+
+Combine these patterns in a `test.describe()` block to create a comprehensive e-commerce test suite:
+
+```ts
+test.describe('E-commerce Performance', () => {
+  // Add tests from the patterns above based on your store's features
+  // Consider including: page loads, cart interactions, checkout flow, and mobile testing
+});
+```
+
+## Related
+
+- [Basic Usage](/docs/examples/basic) – Simple patterns
+- [Dashboard Examples](/docs/examples/dashboard) – Data visualization
+- [SPA Navigation](/docs/examples/spa-navigation) – Route transitions

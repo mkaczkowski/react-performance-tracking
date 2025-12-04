@@ -1,0 +1,57 @@
+# Source files (dist is published)
+src/
+tests/
+specs/
+
+# Config files
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+playwright.config.ts
+eslint.config.js
+.editorconfig
+.prettierrc
+.gitignore
+.npmignore
+
+# Documentation (keep README.md, LICENSE, CHANGELOG.md)
+docs/
+CLAUDE.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+
+# GitHub
+.github/
+
+# Development
+coverage/
+test-results/
+playwright-report/
+node_modules/
+dist/*.tgz
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+.claude/
+
+# Misc
+*.log
+*.tgz
+.DS_Store
+
+
+
+
+
+
+
+
+
+
+
+
+
+

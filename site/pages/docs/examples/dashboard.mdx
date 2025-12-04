@@ -1,0 +1,272 @@
+# Dashboard Examples
+
+Performance testing patterns for data-heavy dashboards.
+
+## Dashboard Initial Load
+
+Test loading a dashboard with charts and data:
+
+```ts
+test.describe('Dashboard Performance', () => {
+  test.performance({
+    thresholds: {
+      base: {
+        profiler: { '*': { duration: 2000, rerenders: 50 } },
+        fps: 45,
+        memory: { heapGrowth: 20 * 1024 * 1024 }, // Max 20MB growth
+        webVitals: {
+          lcp: 3500,
+          inp: 300,
+        },
+      },
+    },
+  })('dashboard initial load', async ({ page, performance }) => {
+    await page.goto('/dashboard');
+    await performance.init();
+  });
+});
+```
+
+## With Network Throttling
+
+Test dashboard on slower networks:
+
+```ts
+test.performance({
+  networkThrottling: 'fast-3g',
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 3000, rerenders: 60 } },
+      fps: 40,
+      memory: { heapGrowth: 25 * 1024 * 1024 },
+    },
+  },
+})('dashboard on slow network', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+});
+```
+
+## Data Filtering
+
+Test filter interactions with chart updates:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 15 } },
+    },
+  },
+})('filter data', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+
+  performance.mark('filter-start');
+  await performance.reset();
+  await page.selectOption('select[name="date-range"]', '30days');
+  await page.waitForSelector('.chart-loading', { state: 'hidden' });
+  await performance.waitUntilStable();
+  performance.mark('filter-end');
+
+  const filterTime = performance.measure('filter-operation', 'filter-start', 'filter-end');
+  console.log(`Filter took ${filterTime}ms`);
+});
+```
+
+## Chart Interactions
+
+Test chart hover and tooltip performance:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 100, rerenders: 5 } },
+      fps: 60, // Smooth chart interactions
+    },
+  },
+})('chart tooltip', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+
+  await performance.reset();
+  await page.hover('.chart-area');
+  await page.waitForSelector('.tooltip');
+  await performance.waitUntilStable();
+});
+```
+
+## Data Refresh
+
+Test real-time data refresh:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 300, rerenders: 10 } },
+      memory: { heapGrowth: 5 * 1024 * 1024 }, // Check for memory leaks
+    },
+  },
+})('data refresh', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('[data-testid="refresh"]');
+  await page.waitForResponse('**/api/dashboard-data');
+  await performance.waitUntilStable();
+});
+```
+
+## Tab Switching
+
+Test switching between dashboard tabs:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 400, rerenders: 15 } },
+    },
+  },
+})('tab switch', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('[data-testid="tab-analytics"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Export Data
+
+Test exporting dashboard data:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 1000, rerenders: 20 } },
+    },
+  },
+})('export data', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+
+  performance.mark('export-start');
+  await performance.reset();
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('[data-testid="export-csv"]'),
+  ]);
+
+  await performance.waitUntilStable();
+  performance.mark('export-end');
+
+  const exportTime = performance.measure('export', 'export-start', 'export-end');
+  console.log(`Export took ${exportTime}ms`);
+});
+```
+
+## Widget Drag and Drop
+
+Test dashboard customization:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 200, rerenders: 10 } },
+      fps: 55, // Smooth dragging
+    },
+  },
+})('widget drag', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+
+  await performance.reset();
+  const widget = page.locator('[data-testid="widget-sales"]');
+  const target = page.locator('[data-testid="drop-zone"]');
+
+  await widget.dragTo(target);
+  await performance.waitUntilStable();
+});
+```
+
+## Multiple Iterations for Reliability
+
+Test with statistical reliability:
+
+```ts
+test.performance({
+  iterations: 5,
+  warmup: true,
+  thresholds: {
+    base: {
+      profiler: {
+        '*': {
+          duration: { avg: 1500, p95: 2000 },
+          rerenders: 40,
+        },
+      },
+      fps: { avg: 50, p95: 40 },
+    },
+    ci: {
+      profiler: {
+        '*': {
+          duration: { avg: 2000, p95: 2500 },
+        },
+      },
+    },
+  },
+})('dashboard reliability test', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+});
+```
+
+## Component-Level Profiling
+
+Track individual dashboard components:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: {
+        '*': { duration: 2000, rerenders: 50 },
+        'header': { duration: 100, rerenders: 5 },
+        'sidebar': { duration: 150, rerenders: 8 },
+        'chart-sales': { duration: 500, rerenders: 10 },
+        'chart-traffic': { duration: 500, rerenders: 10 },
+        'data-table': { duration: 600, rerenders: 15 },
+      },
+    },
+  },
+})('component breakdown', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+  // Test output shows per-component metrics
+});
+```
+
+## Building a Test Suite
+
+Combine these patterns in a `test.describe()` block to create a comprehensive dashboard test suite:
+
+```ts
+test.describe('Dashboard Performance', () => {
+  // Add tests from the patterns above based on your dashboard's features
+  // Consider including: initial load, data refresh, filtering, and component breakdown
+});
+```
+
+## Related
+
+- [Basic Usage](/docs/examples/basic) – Simple patterns
+- [E-Commerce Examples](/docs/examples/e-commerce) – Product pages
+- [SPA Navigation](/docs/examples/spa-navigation) – Route transitions

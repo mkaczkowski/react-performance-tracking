@@ -1,0 +1,209 @@
+# Playwright Setup
+
+Integrate performance testing with your Playwright test suite.
+
+## Overview
+
+The Playwright layer provides:
+
+- `createPerformanceTest()` – Factory to extend Playwright with `test.performance()`
+- `performance` fixture – Methods to control profiler and collect metrics
+- Automatic assertions based on thresholds
+- CDP features for Chromium (throttling, FPS, memory)
+
+## Basic Setup
+
+### 1. Create a Setup File
+
+Create a file that exports the extended test:
+
+```ts
+// tests/performance.setup.ts
+import { test as base } from '@playwright/test';
+import { createPerformanceTest } from 'react-performance-tracking/playwright';
+
+export const test = createPerformanceTest(base);
+export { expect } from '@playwright/test';
+```
+
+### 2. Write Performance Tests
+
+Import the extended test and use `test.performance()`:
+
+```ts
+// tests/homepage.perf.spec.ts
+import { test } from './performance.setup';
+
+test.describe('Homepage Performance', () => {
+  test.performance({
+    thresholds: {
+      base: {
+        profiler: {
+          '*': { duration: 500, rerenders: 20 },
+        },
+      },
+    },
+  })('page load', async ({ page, performance }) => {
+    await page.goto('/');
+    await performance.init();
+  });
+});
+```
+
+## Performance Fixture Methods
+
+The `performance` fixture provides these methods:
+
+### init()
+
+Wait for profiler initialization and React stability. This is a shorthand for `waitForInitialization()` + `waitUntilStable()`.
+
+```ts
+await performance.init();
+```
+
+### reset()
+
+Clear collected samples and custom metrics. Use to isolate specific interactions:
+
+```ts
+await performance.init();  // Initial load
+await performance.reset(); // Clear previous data
+
+await page.click('button');
+await performance.waitUntilStable();
+// Only button click is measured
+```
+
+### waitForInitialization(timeout?)
+
+Wait for the profiler to be ready. Default timeout: 10 seconds.
+
+```ts
+await performance.waitForInitialization(15000); // 15s timeout
+```
+
+### waitUntilStable(options?)
+
+Wait for React to settle (no new renders for the stability period).
+
+```ts
+await performance.waitUntilStable({
+  stabilityPeriodMs: 500,  // Default: 1000ms
+  checkIntervalMs: 100,    // Default: 100ms
+  maxWaitMs: 5000,         // Default: 5000ms
+});
+```
+
+### mark(name) / measure(name, start, end)
+
+Record custom timing metrics:
+
+```ts
+performance.mark('operation-start');
+await doSomething();
+performance.mark('operation-end');
+
+const duration = performance.measure('operation', 'operation-start', 'operation-end');
+console.log(`Operation took ${duration}ms`);
+```
+
+### getCustomMetrics()
+
+Retrieve all recorded marks and measures:
+
+```ts
+const metrics = performance.getCustomMetrics();
+console.log(metrics.marks);    // [{ name, timestamp }, ...]
+console.log(metrics.measures); // [{ name, duration, startMark, endMark }, ...]
+```
+
+## Test Configuration
+
+`test.performance()` accepts a configuration object:
+
+```ts
+test.performance({
+  warmup: true,                    // Run warmup iteration
+  throttleRate: 4,                 // 4x slower CPU
+  iterations: 3,                   // Run 3 times
+  networkThrottling: 'fast-3g',    // Network preset
+  exportTrace: true,               // Export DevTools trace
+  thresholds: { ... },             // Performance budgets
+  buffers: { ... },                // Threshold tolerance
+  name: 'custom-name',             // Artifact filename
+})('test title', async ({ page, performance }) => { ... });
+```
+
+See [Configuration](/docs/api/configuration) for full details.
+
+## Fixtures Available
+
+`test.performance()` only passes `page` and `performance` to your test function:
+
+```ts
+test.performance({ ... })('test', async ({ page, performance }) => {
+  // page - Playwright Page
+  // performance - Performance fixture
+});
+```
+
+:::warning
+Custom fixtures are not automatically available. See [Custom Fixtures](/docs/advanced/custom-fixtures) for workarounds.
+:::
+
+## Controlling Log Output
+
+Control console output verbosity:
+
+```ts
+import { setLogLevel } from 'react-performance-tracking/playwright';
+
+// In your setup file
+setLogLevel('silent');  // Disable all output
+setLogLevel('error');   // Only errors
+setLogLevel('warn');    // Errors + warnings
+setLogLevel('info');    // Default
+setLogLevel('debug');   // Everything
+```
+
+## Playwright Configuration
+
+Example `playwright.config.ts` for performance tests:
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests',
+  testMatch: '**/*.perf.spec.ts',  // Match performance test files
+
+  // Longer timeout for performance tests
+  timeout: 60000,
+
+  use: {
+    baseURL: 'http://localhost:3000',
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // Add more browsers as needed
+  ],
+
+  // Start your app before tests
+  webServer: {
+    command: 'npm run dev',
+    port: 3000,
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+## Next Steps
+
+- [Configuring Thresholds](/docs/guides/thresholds) – Set performance budgets
+- [CPU & Network Throttling](/docs/guides/throttling) – Simulate real-world conditions
+- [Custom Metrics](/docs/guides/custom-metrics) – Track custom timing

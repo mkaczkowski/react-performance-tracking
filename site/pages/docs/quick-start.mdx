@@ -1,0 +1,155 @@
+# Quick Start
+
+Get up and running with react-performance-tracking in 5 minutes.
+
+## Overview
+
+Setting up performance testing requires three steps:
+
+1. **Wrap your React app** with the performance provider
+2. **Extend Playwright** with the performance test helper
+3. **Write performance tests** with thresholds
+
+## Step 1: Wrap Your React App
+
+Add `PerformanceProvider` to your app and wrap components you want to profile with React's `<Profiler>`:
+
+```tsx
+import { Profiler } from 'react';
+import { PerformanceProvider, usePerformanceRequired } from 'react-performance-tracking/react';
+
+function App() {
+  return (
+    <PerformanceProvider>
+      <Header />
+      <MainContent />
+    </PerformanceProvider>
+  );
+}
+
+// Each component wrapped with Profiler gets its own metrics
+function Header() {
+  const { onProfilerRender } = usePerformanceRequired();
+  return (
+    <Profiler id="header" onRender={onProfilerRender}>
+      <header>Navigation here</header>
+    </Profiler>
+  );
+}
+
+function MainContent() {
+  const { onProfilerRender } = usePerformanceRequired();
+  return (
+    <Profiler id="main-content" onRender={onProfilerRender}>
+      <main>Your component content</main>
+    </Profiler>
+  );
+}
+```
+
+:::tip
+The `id` you pass to `<Profiler>` is used to identify the component in test output and threshold configuration.
+:::
+
+## Step 2: Extend Playwright
+
+Create a setup file that extends Playwright's `test` with performance capabilities:
+
+```ts
+// tests/performance.setup.ts
+import { test as base } from '@playwright/test';
+import { createPerformanceTest } from 'react-performance-tracking/playwright';
+
+export const test = createPerformanceTest(base);
+export { expect } from '@playwright/test';
+```
+
+## Step 3: Write Performance Tests
+
+Now write tests using `test.performance()`:
+
+```ts
+// tests/my-page.perf.spec.ts
+import { test } from './performance.setup';
+
+test.describe('My Page Performance', () => {
+  test.performance({
+    thresholds: {
+      base: {
+        profiler: {
+          '*': { duration: 500, rerenders: 20 },
+        },
+      },
+    },
+  })('page load performance', async ({ page, performance }) => {
+    await page.goto('/my-page');
+    await performance.init();
+    // Assertions run automatically based on thresholds
+  });
+});
+```
+
+That's it! Run `npx playwright test` and you'll see performance metrics in your test output.
+
+## Console Output
+
+When tests run, you'll see detailed performance metrics:
+
+```
+════════════════════════════════════════════════════════════════════════════════
+ [Performance] PERFORMANCE TEST: page-load-performance
+════════════════════════════════════════════════════════════════════════════════
+ Environment: local | CPU: 1x
+────────────────────────────────────────────────────────────────────────────────
+
+ RESULTS
+┌──────────┬──────────┬───────────┬────────┐
+│ Metric   │ Actual   │ Threshold │ Status │
+├──────────┼──────────┼───────────┼────────┤
+│ Duration │ 25.50ms  │  < 600ms  │ ✓ PASS │
+│ Renders  │        8 │      ≤ 24 │ ✓ PASS │
+└──────────┴──────────┴───────────┴────────┘
+
+ BREAKDOWN
+ • Phases: mount: 2, update: 6
+ • Components: main-content, header
+
+════════════════════════════════════════════════════════════════════════════════
+ ✓ ALL CHECKS PASSED
+════════════════════════════════════════════════════════════════════════════════
+```
+
+## Testing User Interactions
+
+To measure specific interactions, use `reset()` to isolate measurements:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 100, rerenders: 5 } },
+    },
+  },
+})('button click interaction', async ({ page, performance }) => {
+  await page.goto('/my-page');
+  await performance.init();
+
+  // Reset to clear previous metrics
+  await performance.reset();
+
+  // Now measure just this interaction
+  await page.click('button[data-testid="submit"]');
+  await performance.waitUntilStable();
+
+  // Assertions apply only to the button click
+});
+```
+
+## Next Steps
+
+You've got the basics working! Now explore:
+
+- [Configuring Thresholds](/docs/guides/thresholds) – Set up per-component budgets
+- [CPU & Network Throttling](/docs/guides/throttling) – Simulate real-world conditions
+- [Custom Metrics](/docs/guides/custom-metrics) – Track custom timing
+- [Examples](/docs/examples/basic) – See more test patterns

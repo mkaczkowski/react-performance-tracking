@@ -1,0 +1,189 @@
+# Basic Usage
+
+Simple performance testing patterns to get you started.
+
+## Page Load Test
+
+The most common test: measure how long it takes to render a page.
+
+```ts
+import { test } from './performance.setup';
+
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 20 } },
+    },
+  },
+})('page load performance', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+  // Assertions run automatically
+});
+```
+
+## User Interaction Test
+
+Measure performance of a specific interaction by resetting metrics first:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 100, rerenders: 5 } },
+    },
+  },
+})('button click performance', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  // Isolate the click interaction
+  await performance.reset();
+  await page.click('button[data-testid="submit"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Form Submission
+
+Test the performance of form interactions:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 200, rerenders: 10 } },
+    },
+  },
+})('form submission performance', async ({ page, performance }) => {
+  await page.goto('/contact');
+  await performance.init();
+
+  await performance.reset();
+  await page.fill('input[name="email"]', 'test@example.com');
+  await page.fill('textarea[name="message"]', 'Hello!');
+  await page.click('button[type="submit"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Navigation Test
+
+Test client-side navigation in SPAs:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 300, rerenders: 20 } },
+    },
+  },
+})('navigation performance', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('a[href="/about"]');
+  await page.waitForURL('**/about');
+  await performance.waitUntilStable();
+});
+```
+
+## With FPS Tracking
+
+Add FPS thresholds for animation-heavy pages:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 20 } },
+      fps: 60, // Minimum 60 FPS
+    },
+  },
+})('animation performance', async ({ page, performance }) => {
+  await page.goto('/animations');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('[data-testid="start-animation"]');
+  await performance.waitUntilStable();
+});
+```
+
+## With Web Vitals
+
+Track Core Web Vitals:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 20 } },
+      webVitals: {
+        lcp: 2500,  // Largest Contentful Paint
+        inp: 200,   // Interaction to Next Paint
+        cls: 0.1,   // Cumulative Layout Shift
+      },
+    },
+  },
+})('page with web vitals', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+});
+```
+
+## Multiple Tests in a Suite
+
+Organize related tests in a describe block:
+
+```ts
+test.describe('Homepage Performance', () => {
+  test.performance({
+    thresholds: {
+      base: {
+        profiler: { '*': { duration: 500, rerenders: 20 } },
+      },
+    },
+  })('initial load', async ({ page, performance }) => {
+    await page.goto('/');
+    await performance.init();
+  });
+
+  test.performance({
+    thresholds: {
+      base: {
+        profiler: { '*': { duration: 100, rerenders: 5 } },
+      },
+    },
+  })('search interaction', async ({ page, performance }) => {
+    await page.goto('/');
+    await performance.init();
+
+    await performance.reset();
+    await page.fill('[data-testid="search"]', 'test query');
+    await performance.waitUntilStable();
+  });
+
+  test.performance({
+    thresholds: {
+      base: {
+        profiler: { '*': { duration: 150, rerenders: 8 } },
+      },
+    },
+  })('filter toggle', async ({ page, performance }) => {
+    await page.goto('/');
+    await performance.init();
+
+    await performance.reset();
+    await page.click('[data-testid="filter-toggle"]');
+    await performance.waitUntilStable();
+  });
+});
+```
+
+## Related
+
+- [E-Commerce Examples](/docs/examples/e-commerce) – Product pages, cart, checkout
+- [Dashboard Examples](/docs/examples/dashboard) – Charts, filters, data loading
+- [SPA Navigation](/docs/examples/spa-navigation) – Route transitions

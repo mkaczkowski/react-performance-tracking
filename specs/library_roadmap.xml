@@ -1,0 +1,447 @@
+<library_specification>
+  <library_name>react-performance-tracking</library_name>
+
+  <overview>
+    Prioritized next steps to make the react-performance-tracking library more
+    robust. This roadmap defines new features for React performance profiling
+    with Playwright integration, including memory tracking, baseline comparison,
+    network throttling, and more. Features are ordered by importance with no
+    forward dependencies - each can be implemented independently.
+  </overview>
+
+  <technology_stack>
+    <core>
+      <runtime>Node.js with TypeScript</runtime>
+      <testing>Playwright for E2E, Vitest for unit tests</testing>
+      <bundler>tsup (ESM + CJS + types)</bundler>
+      <browser_protocol>Chrome DevTools Protocol (CDP)</browser_protocol>
+    </core>
+    <existing_features>
+      <react_profiler>ProfilerProvider, useProfiler hook, global store</react_profiler>
+      <fps_tracking>CDP Tracing API for frame metrics</fps_tracking>
+      <cpu_throttling>CDP Emulation.setCPUThrottlingRate</cpu_throttling>
+      <test_runner>PerformanceTestRunner orchestration</test_runner>
+    </existing_features>
+  </technology_stack>
+
+  <features>
+    <high_priority>
+      <feature id="iteration-averaging" order="1">
+        <title>Test Iteration Averaging</title>
+        <description>
+          Run performance tests multiple times and calculate average values
+          for more reliable threshold comparisons. Reduces noise from one-off
+          spikes and provides more consistent results. Defaults to 1 iteration
+          (current behavior) for backward compatibility. This is foundational
+          for other features like percentile metrics.
+        </description>
+        <dependencies>None - standalone feature</dependencies>
+        <api_design>
+          <code>
+// Run test 5 times, compare averages against thresholds
+test.performance({
+  iterations: 5, // Default: 1 (optional)
+  thresholds: {
+    base: {
+      duration: 200,    // Compared against average duration
+      rerenders: 10,    // Compared against average rerenders
+      avg: 55,       // Compared against average FPS
+    },
+  },
+});
+
+// Metrics output includes iteration data
+metrics: {
+  iterations: 5,
+  duration: 185,        // Average across all iterations
+  rerenders: 8,         // Average across all iterations
+  avg: 58,           // Average across all iterations
+  iterationResults: [   // Individual iteration data
+    { duration: 190, rerenders: 9, avg: 57 },
+    { duration: 180, rerenders: 8, avg: 59 },
+    // ...
+  ],
+  standardDeviation: {  // Optional: variability info
+    duration: 12.5,
+    rerenders: 1.2,
+    avg: 2.1,
+  },
+}
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Unit tests pass
+          - E2E test added
+          - Default iterations: 1 (backward compatible)
+          - Average calculation for all metrics
+          - Individual iteration results stored
+          - Optional standard deviation calculation
+          - Warmup iteration option (discard first run)
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="memory-metrics" order="2">
+        <title>Memory Metrics Tracking</title>
+        <description>
+          Add heap size tracking via CDP's Performance.getMetrics to help
+          detect memory leaks during performance tests.
+        </description>
+        <dependencies>None - standalone CDP feature</dependencies>
+        <api_design>
+          <code>
+// src/playwright/memory/memoryTracking.ts
+type MemoryMetrics = {
+  jsHeapSizeUsed: number;
+  jsHeapSizeTotal: number;
+  heapGrowth: number; // delta from start to end
+};
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Unit tests pass
+          - E2E test added
+          - Types exported
+          - Documentation updated
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="network-throttling" order="3">
+        <title>Network Throttling</title>
+        <description>
+          Add network condition simulation alongside CPU throttling.
+          Similar pattern to existing CPU throttling implementation.
+        </description>
+        <dependencies>None - standalone CDP feature</dependencies>
+        <api_design>
+          <code>
+test.performance({
+  throttleRate: 4,
+  network: 'slow-3g' | 'fast-3g' | 'offline' | { latency, download, upload },
+});
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Unit tests pass
+          - E2E test added
+          - CDP Network.emulateNetworkConditions integration
+          - Preset network profiles
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="custom-metrics" order="4">
+        <title>Custom Metrics API</title>
+        <description>
+          Allow users to track custom performance marks within their tests.
+        </description>
+        <dependencies>None - standalone feature</dependencies>
+        <api_design>
+          <code>
+// In test
+await performance.mark('data-loaded');
+await performance.mark('render-complete');
+
+// Automatically captured in metrics
+metrics.customMarks: { 'data-loaded': 150, 'render-complete': 320 }
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Unit tests pass
+          - E2E test added
+          - Mark/measure API
+          - Integration with metrics output
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="component-profiling" order="5">
+        <title>Component-Level Profiling</title>
+        <description>
+          Track individual component performance in multi-profiler setups.
+          Extends existing React profiler functionality.
+        </description>
+        <dependencies>None - extends existing React profiler</dependencies>
+        <api_design>
+          <code>
+// Captured metrics
+metrics.components: {
+  'Header': { duration: 5, rerenders: 1 },
+  'DataTable': { duration: 120, rerenders: 15 },
+  'Footer': { duration: 2, rerenders: 1 }
+}
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Unit tests pass
+          - Named profiler support
+          - Per-component metrics
+          - Aggregation logic
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+    </high_priority>
+
+    <medium_priority>
+      <feature id="web-vitals" order="6">
+        <title>Web Vitals Integration</title>
+        <description>
+          Capture Web Vitals (INP, LCP, CLS) via PerformanceObserver.
+        </description>
+        <dependencies>None - standalone PerformanceObserver feature</dependencies>
+        <api_design>
+          <code>
+test.performance({
+  trackWebVitals: true,
+  thresholds: {
+    base: { lcp: 2500, inp: 200, cls: 0.1 },
+  },
+});
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Unit tests pass
+          - E2E test added
+          - PerformanceObserver integration
+          - LCP, INP, CLS capture
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="baseline-comparison" order="7">
+        <title>Baseline Comparison &amp; Regression Detection</title>
+        <description>
+          Store historical baselines and compare against them to detect
+          performance regressions.
+        </description>
+        <dependencies>None - standalone feature (enhanced by iteration-averaging)</dependencies>
+        <api_design>
+          <code>
+test.performance({
+  thresholds: { base: { duration: 500 } },
+  baseline: {
+    path: './perf-baselines.json', // Load previous run
+    failOnRegression: true,        // Fail if >10% worse
+    regressionThreshold: 10,       // Percentage
+  },
+});
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Unit tests pass
+          - E2E test added
+          - Baseline file read/write
+          - Regression detection logic
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="percentile-metrics" order="8">
+        <title>Percentile Metrics (P50, P95, P99)</title>
+        <description>
+          Support percentile-based thresholds for tests with multiple iterations.
+          Provides more nuanced performance budgets.
+        </description>
+        <dependencies>Requires iteration-averaging (order 1) for multiple iterations</dependencies>
+        <api_design>
+          <code>
+test.performance({
+  iterations: 10,
+  thresholds: {
+    base: {
+      duration: { p50: 100, p95: 200, p99: 500 },
+      rerenders: { max: 20 },
+    },
+  },
+});
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Unit tests pass
+          - Multiple iteration support
+          - Percentile calculation
+          - Threshold validation
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="html-reporter" order="9">
+        <title>HTML Report Generator</title>
+        <description>
+          Create a standalone performance report with charts for visualizing
+          test results.
+        </description>
+        <dependencies>None - works with any metrics available</dependencies>
+        <api_design>
+          <code>
+// playwright.config.ts
+reporter: [
+  [
+    'react-performance-tracking/reporter',
+    {
+      outputFile: 'perf-report.html',
+      includeCharts: true,
+    },
+  ],
+];
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Playwright reporter interface
+          - HTML template with charts
+          - Historical trend visualization
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+    </medium_priority>
+
+    <lower_priority>
+      <feature id="flamegraph" order="10">
+        <title>Flamegraph Generation</title>
+        <description>
+          Export Chrome DevTools trace for visualization.
+        </description>
+        <dependencies>None - standalone CDP trace export</dependencies>
+        <api_design>
+          <code>
+test.performance({
+  exportTrace: './traces/my-test.json',
+});
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - CDP trace export
+          - File output
+          - Compatible with DevTools
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="snapshot-testing" order="11">
+        <title>Snapshot Testing for Metrics</title>
+        <description>
+          Compare metrics against stored snapshots for regression detection.
+          Alternative approach to baseline-comparison.
+        </description>
+        <dependencies>None - standalone feature</dependencies>
+        <api_design>
+          <code>
+test.performance({
+  snapshot: true, // Compare against stored snapshot
+});
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Snapshot file management
+          - Comparison logic
+          - Update mechanism
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="github-actions" order="12">
+        <title>GitHub Actions Integration</title>
+        <description>
+          Auto-comment on PRs with performance diff.
+        </description>
+        <dependencies>Enhanced by baseline-comparison (order 7) for PR diffs</dependencies>
+        <api_design>
+          <code>
+# .github/workflows/perf.yml
+- uses: your-org/react-perf-action@v1
+  with:
+    baseline-branch: main
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - GitHub Action workflow
+          - PR comment generation
+          - Baseline comparison
+          - Documentation
+        </acceptance_criteria>
+      </feature>
+
+      <feature id="multi-browser" order="13">
+        <title>Multi-Browser Support Enhancement</title>
+        <description>
+          Add Firefox/WebKit equivalents where CDP isn't available using
+          Performance API fallbacks.
+        </description>
+        <dependencies>None - provides fallbacks for all CDP features</dependencies>
+        <api_design>
+          <code>
+// Automatic fallback when CDP not available
+// Uses window.performance API instead
+          </code>
+        </api_design>
+        <acceptance_criteria>
+          - Firefox support
+          - WebKit support
+          - Graceful degradation
+          - Feature detection
+          - Types exported
+        </acceptance_criteria>
+      </feature>
+    </lower_priority>
+  </features>
+
+  <implementation_notes>
+    <cdp_patterns>
+      Most high-priority features will use Chrome DevTools Protocol. Reference
+      existing implementations:
+      - src/playwright/fps/fpsTracking.ts - Tracing API usage
+      - src/playwright/throttling/cpuThrottling.ts - Emulation API usage
+      - src/playwright/utils/cdpSession.ts - Session management
+    </cdp_patterns>
+
+    <integration_points>
+      New features should integrate with:
+      - PerformanceTestRunner - Main orchestration
+      - performanceFixture - Playwright fixture
+      - createPerformanceTest - Test factory
+    </integration_points>
+
+    <testing_requirements>
+      Each feature needs:
+      - Unit tests in tests/unit/playwright/[feature]/
+      - E2E test case in tests/integration/
+      - TypeScript types exported
+      - Documentation in code comments
+    </testing_requirements>
+
+    <file_structure>
+      New features should follow this structure:
+      <code>
+src/playwright/
+├── [feature-name]/
+│   ├── index.ts          # Public exports
+│   ├── [feature].ts      # Main implementation
+│   ├── types.ts          # TypeScript types
+│   └── utils.ts          # Helper functions (if needed)
+      </code>
+    </file_structure>
+  </implementation_notes>
+
+  <success_criteria>
+    <functionality>
+      - All CDP integrations work reliably
+      - Metrics are accurate and consistent
+      - Threshold validation is correct
+      - No memory leaks in tracking code
+    </functionality>
+
+    <developer_experience>
+      - Simple, intuitive API
+      - Clear error messages
+      - Good TypeScript support
+      - Comprehensive documentation
+    </developer_experience>
+
+    <technical_quality>
+      - All tests passing
+      - Type-safe exports
+      - Backward compatible
+      - Well-documented code
+    </technical_quality>
+  </success_criteria>
+</library_specification>

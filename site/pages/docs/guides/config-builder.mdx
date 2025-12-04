@@ -1,0 +1,52 @@
+# Config Builder
+
+Interactive tool to generate `test.performance()` configuration.
+
+import { ConfigBuilder } from '../../../components/ConfigBuilder'
+
+<ConfigBuilder />
+
+## How to Use
+
+1. **Configure test options** – Set warmup, throttling, iterations, and network conditions
+2. **Set profiler thresholds** – Define max duration and rerenders
+3. **Add optional thresholds** – Enable FPS, memory, or Web Vitals tracking
+4. **Copy the generated code** – Paste into your test file
+
+:::tip
+Optional thresholds (FPS, memory, Web Vitals) are only included in the output when you enter a value. Leave them blank to disable.
+:::
+
+## Understanding the Options
+
+### Test Options
+
+| Option | Description |
+|--------|-------------|
+| **Warmup** | Run an excluded warmup iteration to reduce cold-start variance |
+| **CPU Throttle** | Simulate slower CPUs (Chromium only) |
+| **Iterations** | Run multiple times for statistical reliability |
+| **Network** | Simulate network conditions (Chromium only) |
+
+### Profiler Thresholds
+
+| Threshold | Description |
+|-----------|-------------|
+| **Duration** | Maximum total render time in milliseconds |
+| **Rerenders** | Maximum number of React renders |
+
+### Optional Thresholds
+
+| Threshold | Description | Browser |
+|-----------|-------------|---------|
+| **FPS** | Minimum frames per second | Chromium |
+| **Heap Growth** | Maximum memory growth in MB | Chromium |
+| **LCP** | Largest Contentful Paint (ms) | All |
+| **INP** | Interaction to Next Paint (ms) | All |
+| **CLS** | Cumulative Layout Shift | All |
+
+## Next Steps
+
+- [Configuring Thresholds](/docs/guides/thresholds) – Detailed threshold guide
+- [CPU & Network Throttling](/docs/guides/throttling) – Throttling deep dive
+- [Configuration Reference](/docs/api/configuration) – All options

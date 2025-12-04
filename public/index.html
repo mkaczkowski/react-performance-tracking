@@ -1,0 +1,1888 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React Performance Tracking - Automated Performance Testing for Playwright</title>
+  <meta name="description" content="Catch render regressions before they reach production. Automated performance testing with React Profiler integration.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Async font loading to avoid render-blocking -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap"></noscript>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+
+  <!-- Apple Touch Icon -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="React Perf Tracking">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://github.com/mkaczkowski/react-performance-tracking">
+  <meta property="og:title" content="React Performance Tracking">
+  <meta property="og:description" content="Catch render regressions before they reach production. Automated performance testing with React Profiler integration.">
+  <meta property="og:image" content="/og-image.svg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="React Performance Tracking">
+  <meta name="twitter:description" content="Catch render regressions before they reach production. Automated performance testing with React Profiler integration.">
+  <meta name="twitter:image" content="/og-image.svg">
+
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#3b82f6">
+
+  <!-- Android -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base: #0c0f1a;
+      --bg-elevated: #111827;
+      --bg-surface: #1a2235;
+      --bg-glass: rgba(26, 34, 53, 0.7);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-blue: #3b82f6;
+      --accent-blue-soft: #60a5fa;
+      --accent-indigo: #6366f1;
+      --accent-violet: #8b5cf6;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --border-subtle: rgba(148, 163, 184, 0.1);
+      --border-default: rgba(148, 163, 184, 0.15);
+      --glow-blue: rgba(59, 130, 246, 0.2);
+      --glow-emerald: rgba(16, 185, 129, 0.2);
+      /* Fallback to system fonts for instant text rendering */
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Apply custom fonts when loaded */
+    .fonts-loaded {
+      --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      overflow-x: clip;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.7;
+      overflow-x: clip;
+    }
+
+    .page-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Ambient Background */
+    .ambient {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    .ambient-gradient {
+      position: absolute;
+      width: 150%;
+      height: 150%;
+      top: -25%;
+      left: -25%;
+      background:
+        radial-gradient(ellipse 40% 30% at 20% 20%, rgba(99, 102, 241, 0.15), transparent 50%),
+        radial-gradient(ellipse 35% 25% at 80% 30%, rgba(59, 130, 246, 0.12), transparent 50%),
+        radial-gradient(ellipse 30% 20% at 60% 80%, rgba(139, 92, 246, 0.1), transparent 50%);
+      animation: ambientDrift 30s ease-in-out infinite;
+    }
+
+    @keyframes ambientDrift {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      33% { transform: translate(2%, 1%) rotate(1deg); }
+      66% { transform: translate(-1%, 2%) rotate(-1deg); }
+    }
+
+    .noise {
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 32px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Navigation */
+    .main-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 20px 0;
+      transition: all 0.4s var(--ease-out-expo);
+    }
+
+    .main-nav.scrolled {
+      padding: 12px 0;
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .main-nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 0 6px var(--glow-blue));
+      transition: filter 0.3s ease;
+    }
+
+    .logo:hover .logo-mark {
+      filter: drop-shadow(0 0 10px var(--glow-blue));
+    }
+
+    .logo-mark svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .logo-mark .logo-ring {
+      stroke-dasharray: 283;
+      stroke-dashoffset: 283;
+      animation: logoRingDraw 1.5s var(--ease-out-expo) 0.3s forwards;
+    }
+
+    @keyframes logoRingDraw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    .logo-mark .logo-bolt {
+      opacity: 0;
+      transform-origin: center;
+      animation: logoBoltReveal 0.6s var(--ease-spring) 1s forwards;
+    }
+
+    @keyframes logoBoltReveal {
+      0% { opacity: 0; transform: scale(0) rotate(-20deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    .logo-mark .logo-pulse {
+      animation: logoPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes logoPulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 40px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      position: relative;
+      transition: color 0.3s ease;
+    }
+
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-violet));
+      border-radius: 1px;
+      transition: width 0.3s var(--ease-out-expo);
+    }
+
+    .nav-links a:hover { color: var(--text-primary); }
+    .nav-links a:hover::after { width: 100%; }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s var(--ease-out-expo);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+      color: white;
+      box-shadow: 0 4px 16px var(--glow-blue), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--glow-blue), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-default);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-elevated);
+      border-color: var(--accent-blue);
+    }
+
+    .btn-large {
+      padding: 14px 28px;
+      font-size: 1rem;
+      border-radius: 12px;
+    }
+
+    .mobile-menu { display: none; background: transparent; }
+
+    /* Mobile Navigation Overlay */
+    .mobile-nav-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(12, 15, 26, 0.98);
+      backdrop-filter: blur(20px);
+      z-index: 99;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s var(--ease-out-expo);
+    }
+
+    .mobile-nav-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      top: 80px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      padding: 32px;
+      flex-direction: column;
+      gap: 8px;
+      transform: translateY(-20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s var(--ease-out-expo);
+      overflow-y: auto;
+    }
+
+    .mobile-nav.active {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mobile-nav a {
+      display: block;
+      padding: 16px 20px;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 1.1rem;
+      font-weight: 500;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .mobile-nav a:hover,
+    .mobile-nav a:active {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+    }
+
+    .mobile-nav .mobile-nav-actions {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .mobile-nav .btn-secondary {
+      border-color: rgba(148, 163, 184, 0.3);
+    }
+
+    .mobile-nav .btn-secondary:hover,
+    .mobile-nav .btn-secondary:active {
+      border-color: var(--accent-blue);
+      background: var(--bg-elevated);
+    }
+
+    .mobile-menu .menu-icon,
+    .mobile-menu .close-icon {
+      transition: opacity 0.2s ease;
+    }
+
+    .mobile-menu .close-icon {
+      display: none;
+    }
+
+    .mobile-menu.active .menu-icon {
+      display: none;
+    }
+
+    .mobile-menu.active .close-icon {
+      display: block;
+    }
+
+    /* Terminal table scroll wrapper */
+    .term-table-wrapper {
+      overflow-x: auto;
+      overflow-y: hidden;
+      margin: 0 -24px;
+      padding: 0 24px;
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 140px 0 100px;
+    }
+
+    .hero .container {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .hero-content > * {
+      opacity: 0;
+      transform: translateY(30px);
+      animation: slideUp 0.8s var(--ease-out-expo) forwards;
+    }
+
+    .hero-content > *:nth-child(1) { animation-delay: 0.1s; }
+    .hero-content > *:nth-child(2) { animation-delay: 0.2s; }
+    .hero-content > *:nth-child(3) { animation-delay: 0.3s; }
+    .hero-content > *:nth-child(4) { animation-delay: 0.4s; }
+    .hero-content > *:nth-child(5) { animation-delay: 0.5s; }
+
+    @keyframes slideUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 100px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+    }
+
+    .hero-eyebrow .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-emerald);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+    }
+
+    .hero h1 {
+      font-size: 3.75rem;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--accent-blue-soft), var(--accent-violet));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-text {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      margin-bottom: 36px;
+      max-width: 480px;
+      line-height: 1.8;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    .hero-actions-desktop {
+      /* Show on desktop, hide on mobile */
+    }
+
+    .hero-actions-mobile {
+      /* Hide on desktop, show on mobile */
+      display: none;
+      justify-content: center;
+      margin-bottom: 0;
+    }
+
+    .hero-badges {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .hero-badges img {
+      height: 22px;
+      opacity: 0.9;
+      transition: opacity 0.3s, transform 0.3s var(--ease-spring);
+    }
+
+    .hero-badges img:hover {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+
+    /* Terminal */
+    .terminal-container {
+      opacity: 0;
+      transform: translateY(40px) scale(0.95);
+      animation: terminalEnter 1s var(--ease-out-expo) 0.4s forwards;
+    }
+
+    @keyframes terminalEnter {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .terminal {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 30px 60px -20px rgba(0, 0, 0, 0.4),
+        0 0 80px -40px var(--glow-blue);
+      transition: transform 0.4s var(--ease-out-expo), box-shadow 0.4s ease;
+    }
+
+    .terminal:hover {
+      transform: translateY(-4px);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 40px 80px -20px rgba(0, 0, 0, 0.5),
+        0 0 100px -30px var(--glow-blue);
+    }
+
+    .terminal-chrome {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .terminal-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .terminal-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      transition: transform 0.2s var(--ease-spring);
+    }
+
+    .terminal:hover .terminal-btn { transform: scale(1.1); }
+
+    .terminal-btn.close { background: #ef4444; }
+    .terminal-btn.minimize { background: #eab308; }
+    .terminal-btn.maximize { background: #22c55e; }
+
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .terminal-body {
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      line-height: 1.8;
+      min-height: 360px;
+    }
+
+    .term-line {
+      opacity: 0;
+      transform: translateX(-10px);
+      animation: lineSlide 0.5s var(--ease-out-expo) forwards;
+    }
+
+    @keyframes lineSlide {
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .term-line:nth-child(1) { animation-delay: 0.8s; }
+    .term-line:nth-child(2) { animation-delay: 1.4s; }
+
+    .term-prompt { color: var(--accent-emerald); }
+    .term-cmd { color: var(--text-primary); }
+
+    .term-output {
+      margin-top: 20px;
+      padding: 16px 20px;
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.08), transparent);
+      border-left: 2px solid var(--accent-blue);
+      border-radius: 0 8px 8px 0;
+      opacity: 0;
+      animation: fadeIn 0.6s var(--ease-out-expo) 1.6s forwards;
+    }
+
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+
+    .term-output .label {
+      color: var(--accent-blue);
+      font-weight: 500;
+    }
+
+    .term-output .meta {
+      margin-top: 6px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .term-output .meta span { color: var(--text-secondary); }
+
+    .term-table {
+      margin-top: 24px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .term-table th {
+      text-align: left;
+      padding: 12px 16px;
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .term-table td {
+      padding: 14px 16px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .term-table tbody tr {
+      opacity: 0;
+      transform: translateY(10px);
+      animation: rowEnter 0.4s var(--ease-out-expo) forwards;
+      transition: background 0.2s ease;
+    }
+
+    .term-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+    @keyframes rowEnter {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .term-table tbody tr:nth-child(1) { animation-delay: 1.9s; }
+    .term-table tbody tr:nth-child(2) { animation-delay: 2.1s; }
+    .term-table tbody tr:nth-child(3) { animation-delay: 2.3s; }
+    .term-table tbody tr:nth-child(4) { animation-delay: 2.5s; }
+
+    .term-metric { color: var(--text-primary); }
+    .term-value { color: var(--accent-blue-soft); font-weight: 500; }
+    .term-threshold { color: var(--text-muted); }
+
+    .term-pass {
+      color: var(--accent-emerald);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .term-pass svg {
+      opacity: 0;
+      transform: scale(0);
+      animation: checkPop 0.4s var(--ease-spring) forwards;
+    }
+
+    .term-table tbody tr:nth-child(1) .term-pass svg { animation-delay: 2.2s; }
+    .term-table tbody tr:nth-child(2) .term-pass svg { animation-delay: 2.4s; }
+    .term-table tbody tr:nth-child(3) .term-pass svg { animation-delay: 2.6s; }
+    .term-table tbody tr:nth-child(4) .term-pass svg { animation-delay: 2.8s; }
+
+    @keyframes checkPop {
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .term-success {
+      margin-top: 24px;
+      padding: 16px 20px;
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.12), transparent);
+      border-left: 2px solid var(--accent-emerald);
+      border-radius: 0 8px 8px 0;
+      color: var(--accent-emerald);
+      font-weight: 600;
+      opacity: 0;
+      transform: scale(0.95);
+      animation: successReveal 0.6s var(--ease-spring) 3s forwards;
+    }
+
+    @keyframes successReveal {
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Sections */
+    section {
+      padding: 80px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-intro {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .section-tag {
+      display: inline-block;
+      padding: 6px 16px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent-blue-soft);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+    }
+
+    .section-intro h2 {
+      font-size: 2.75rem;
+      font-weight: 800;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .section-intro p {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    /* Value Props */
+    .value-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .value-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 36px;
+      transition: all 0.4s var(--ease-out-expo);
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto 1fr;
+      gap: 0 16px;
+      align-items: start;
+    }
+
+    .value-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-violet));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .value-card:hover {
+      transform: translateY(-8px);
+      border-color: var(--border-default);
+      box-shadow: 0 20px 40px -20px rgba(0,0,0,0.3);
+    }
+
+    .value-card:hover::before { opacity: 1; }
+
+    .value-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      transition: transform 0.4s var(--ease-spring);
+      flex-shrink: 0;
+    }
+
+    .value-card:hover .value-icon { transform: scale(1.1) rotate(-5deg); }
+
+    .value-card.problem .value-icon { background: rgba(245, 158, 11, 0.15); }
+    .value-card.old .value-icon { background: rgba(100, 116, 139, 0.15); }
+    .value-card.new .value-icon { background: rgba(16, 185, 129, 0.15); }
+
+    .value-card h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin: 0;
+      align-self: center;
+    }
+
+    .value-card p {
+      color: var(--text-secondary);
+      line-height: 1.7;
+      grid-column: 1 / -1;
+      margin-top: 16px;
+    }
+
+    /* Features */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 28px;
+      transition: all 0.4s var(--ease-out-expo);
+      position: relative;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto 1fr;
+      gap: 0 12px;
+      align-items: start;
+    }
+
+    .feature-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-6px) scale(1.02);
+      border-color: rgba(59, 130, 246, 0.3);
+      box-shadow: 0 16px 32px -16px rgba(0, 0, 0, 0.3);
+    }
+
+    .feature-card:hover::after { opacity: 1; }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      transition: all 0.4s var(--ease-spring);
+      flex-shrink: 0;
+    }
+
+    .feature-card:hover .feature-icon {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+      transform: rotate(-8deg) scale(1.1);
+      box-shadow: 0 8px 16px var(--glow-blue);
+    }
+
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      position: relative;
+      z-index: 1;
+      align-self: center;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      position: relative;
+      z-index: 1;
+      grid-column: 1 / -1;
+      margin-top: 12px;
+    }
+
+    /* Quick Start */
+    .quickstart-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 60px;
+    }
+
+    .steps-nav {
+      position: sticky;
+      top: 120px;
+      align-self: start;
+      height: fit-content;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 16px;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      transition: all 0.3s var(--ease-out-expo);
+      cursor: pointer;
+    }
+
+    .step-item:hover { background: var(--bg-glass); }
+    .step-item.active { background: var(--bg-surface); }
+
+    .step-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+
+    .step-item.active .step-num,
+    .step-item:hover .step-num {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+      border-color: transparent;
+      color: white;
+    }
+
+    .step-info h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .step-info p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .code-panels { display: flex; flex-direction: column; gap: 24px; }
+
+    .code-panel {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s var(--ease-out-expo);
+    }
+
+    .code-panel:hover {
+      border-color: var(--border-default);
+      box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.2);
+    }
+
+    .code-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .code-panel-header span {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border-color: var(--border-default);
+    }
+
+    .code-panel-body {
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.8;
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    .code-panel-body pre {
+      margin: 0;
+      white-space: pre;
+      word-wrap: normal;
+    }
+
+    /* Syntax */
+    .kw { color: var(--accent-violet); }
+    .str { color: var(--accent-emerald); }
+    .fn { color: var(--accent-blue-soft); }
+    .cmt { color: var(--text-muted); font-style: italic; }
+    .prop { color: var(--accent-amber); }
+    .num { color: #f472b6; }
+    .tag { color: var(--accent-blue-soft); }
+
+    /* CTA */
+    .cta-section {
+      padding: 60px 0 100px;
+    }
+
+    .cta-box {
+      background: linear-gradient(135deg, var(--bg-surface), var(--bg-elevated));
+      border: 1px solid var(--border-subtle);
+      border-radius: 32px;
+      padding: 80px 60px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 20%;
+      right: 20%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+    }
+
+    .cta-box h2 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .cta-box p {
+      color: var(--text-secondary);
+      font-size: 1.15rem;
+      margin-bottom: 40px;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    /* Footer */
+    footer {
+      position: relative;
+      z-index: 1;
+      padding: 48px 0;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-base);
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .footer-brand p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .footer-logo .logo-mark {
+      width: 24px;
+      height: 24px;
+    }
+
+    .footer-nav {
+      display: flex;
+      gap: 32px;
+    }
+
+    .footer-nav a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.2s ease;
+    }
+
+    .footer-nav a:hover { color: var(--accent-blue-soft); }
+
+    /* Config Builder Section */
+    .config-builder-section {
+      padding: 80px 0 100px;
+    }
+
+    .iframe-wrapper {
+      position: relative;
+      width: 100%;
+      height: 800px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 30px 60px -20px rgba(0, 0, 0, 0.4),
+        0 0 80px -40px var(--glow-blue);
+    }
+
+    .iframe-wrapper iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .iframe-wrapper.loaded iframe {
+      opacity: 1;
+    }
+
+    .iframe-wrapper.loaded .iframe-loading {
+      display: none;
+    }
+
+    .iframe-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border-subtle);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Scroll animations */
+    .animate-on-scroll {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.8s var(--ease-out-expo), transform 0.8s var(--ease-out-expo);
+    }
+
+    .animate-on-scroll.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .hero .container { grid-template-columns: 1fr; gap: 60px; }
+      .hero h1 { font-size: 3rem; }
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .quickstart-layout { grid-template-columns: 1fr; }
+      .steps-nav {
+        position: static;
+        display: flex;
+        gap: 12px;
+        margin-bottom: 40px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+      }
+      .step-item { flex: 0 0 auto; margin-bottom: 0; }
+      /* Config Builder responsive */
+      .iframe-wrapper { height: 1200px; }
+    }
+
+    @media (max-width: 768px) {
+      .container { padding: 0 20px; }
+      .nav-links, .nav-actions { display: none; }
+      .mobile-menu { display: flex; }
+      .mobile-nav-overlay,
+      .mobile-nav { display: flex; }
+      .hero { padding: 120px 0 80px; }
+      .hero .container { gap: 46px; }
+      .hero h1 { font-size: 2.5rem; }
+      .hero-text { font-size: 1.1rem; }
+      .hero-actions { flex-direction: column; }
+      .hero-actions-desktop { display: none; }
+      .hero-actions-mobile { display: flex; }
+      .value-grid { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      section { padding: 40px 0; }
+      .section-intro h2 { font-size: 2rem; }
+      .cta-box { padding: 48px 24px; border-radius: 24px; }
+      .cta-box h2 { font-size: 1.8rem; }
+      .cta-actions { flex-direction: column; }
+      .footer-inner { flex-direction: column; gap: 24px; text-align: center; }
+      .footer-brand { justify-content: center; }
+      .footer-nav { flex-wrap: wrap; justify-content: center; gap: 16px 24px; }
+      .terminal-body { font-size: 0.875rem; min-height: 300px; padding: 16px; overflow-x: auto; }
+      .term-table-wrapper { margin: 0; padding: 0; overflow-x: auto; }
+      .term-table { min-width: 0; }
+      .term-table th,
+      .term-table td { padding: 10px 12px; font-size: 0.8rem; white-space: nowrap; }
+      /* Hide steps nav bar on mobile */
+      .steps-nav { display: none; }
+      /* Improve touch targets */
+      .btn { padding: 12px 24px; min-height: 48px; gap: 10px; }
+      .btn-large { padding: 16px 28px; }
+      .copy-btn { padding: 8px 14px; min-height: 40px; }
+      /* Code panel overflow fix */
+      .quickstart-layout { gap: 0; min-width: 0; }
+      .code-panels { max-width: 100%; width: 100%; min-width: 0; }
+      .code-panel { max-width: 100%; overflow: hidden; min-width: 0; }
+      .code-panel-body { padding: 16px; font-size: 0.8rem; max-width: 100%; min-width: 0; overflow-x: auto; }
+      /* Terminal overflow fix */
+      .terminal-container { max-width: 100%; }
+      .terminal { max-width: 100%; }
+      /* Config Builder responsive */
+      .iframe-wrapper { height: 1400px; border-radius: 16px; }
+      .config-builder-section { padding: 40px 0 60px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient">
+    <div class="ambient-gradient"></div>
+    <div class="noise"></div>
+  </div>
+
+  <main class="page-content">
+  <nav id="nav" class="main-nav">
+    <div class="container">
+      <a href="#" class="logo">
+        <div class="logo-mark">
+          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3b82f6"/>
+                <stop offset="100%" stop-color="#8b5cf6"/>
+              </linearGradient>
+              <linearGradient id="boltGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#60a5fa"/>
+                <stop offset="100%" stop-color="#a78bfa"/>
+              </linearGradient>
+            </defs>
+            <circle class="logo-pulse" cx="50" cy="50" r="45" fill="url(#logoGradient)" opacity="0.15"/>
+            <circle class="logo-ring" cx="50" cy="50" r="45" stroke="url(#logoGradient)" stroke-width="3" fill="none"/>
+            <path class="logo-bolt" d="M55 25L35 52h15l-5 23 20-27H50l5-23z" fill="url(#boltGradient)"/>
+          </svg>
+        </div>
+        <span>react-performance-tracking</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#quickstart">Quick Start</a></li>
+        <li><a href="#config-builder">Builder</a></li>
+        <li><a href="/docs">Docs</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a href="https://github.com/mkaczkowski/react-performance-tracking" target="_blank" class="btn btn-ghost">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href="/docs" class="btn btn-primary">Get Started</a>
+      </div>
+      <button class="mobile-menu btn btn-ghost" id="mobileMenuBtn" aria-label="Toggle menu">
+        <svg class="menu-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        <svg class="close-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile Navigation -->
+  <div class="mobile-nav-overlay" id="mobileNavOverlay"></div>
+  <nav class="mobile-nav" id="mobileNav">
+    <a href="#features">Features</a>
+    <a href="#quickstart">Quick Start</a>
+    <a href="#config-builder">Builder</a>
+    <a href="/docs">Docs</a>
+    <div class="mobile-nav-actions">
+      <a href="/docs" class="btn btn-primary">Get Started</a>
+      <a href="https://github.com/mkaczkowski/react-performance-tracking" target="_blank" class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+    
+        <h1>
+          Automated <span class="gradient">React Performance</span> Testing
+        </h1>
+        <p class="hero-text">
+          Catch render regressions before they reach production. Built for Playwright with zero boilerplate and comprehensive metrics.
+        </p>
+        <div class="hero-actions hero-actions-desktop">
+          <a href="#challenge" class="btn btn-primary btn-large">
+            Get Started
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href="https://github.com/mkaczkowski/react-performance-tracking" target="_blank" class="btn btn-secondary btn-large">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+        <div class="hero-badges">
+          <img src="https://img.shields.io/npm/v/react-performance-tracking.svg?style=flat-square&color=3b82f6" alt="npm">
+          <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT">
+          <img src="https://img.shields.io/badge/PRs-welcome-10b981.svg?style=flat-square" alt="PRs">
+        </div>
+      </div>
+      <div class="terminal-container">
+        <div class="terminal">
+          <div class="terminal-chrome">
+            <div class="terminal-buttons">
+              <span class="terminal-btn close"></span>
+              <span class="terminal-btn minimize"></span>
+              <span class="terminal-btn maximize"></span>
+            </div>
+            <span class="terminal-title">performance.spec.ts</span>
+          </div>
+          <div class="terminal-body">
+            <div class="term-line">
+              <span class="term-prompt">$</span>
+              <span class="term-cmd"> npx playwright test --project=perf</span>
+            </div>
+            <div class="term-line term-output">
+              <div class="label">[Performance] TEST: checkout-flow</div>
+              <div class="meta">
+                Env: <span>CI</span> &bull; Throttle: <span>4x</span> &bull; Iterations: <span>3</span>
+              </div>
+            </div>
+            <div class="term-table-wrapper">
+              <table class="term-table">
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Actual</th>
+                    <th>Threshold</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="term-metric">Duration</td>
+                    <td class="term-value">42.5ms</td>
+                    <td class="term-threshold">&lt; 100ms</td>
+                    <td><span class="term-pass"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>PASS</span></td>
+                  </tr>
+                  <tr>
+                    <td class="term-metric">Renders</td>
+                    <td class="term-value">8</td>
+                    <td class="term-threshold">&le; 12</td>
+                    <td><span class="term-pass"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>PASS</span></td>
+                  </tr>
+                  <tr>
+                    <td class="term-metric">FPS</td>
+                    <td class="term-value">58.2</td>
+                    <td class="term-threshold">&ge; 55</td>
+                    <td><span class="term-pass"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>PASS</span></td>
+                  </tr>
+                  <tr>
+                    <td class="term-metric">Memory</td>
+                    <td class="term-value">+2.1MB</td>
+                    <td class="term-threshold">&lt; 10MB</td>
+                    <td><span class="term-pass"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>PASS</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="term-success">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="margin-right:8px;vertical-align:middle"><path d="M20 6L9 17l-5-5"/></svg>
+              ALL CHECKS PASSED
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-actions hero-actions-mobile">
+        <a href="#challenge" class="btn btn-primary btn-large">
+          Get Started
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </a>
+        <a href="https://github.com/mkaczkowski/react-performance-tracking" target="_blank"
+          class="btn btn-secondary btn-large">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="challenge" class="animate-on-scroll">
+    <div class="container">
+      <div class="section-intro">
+        <span class="section-tag">The Challenge</span>
+        <h2>Performance Testing Is Broken</h2>
+        <p>Most teams discover performance regressions in production. There's a better way.</p>
+      </div>
+      <div class="value-grid">
+        <div class="value-card problem animate-on-scroll">
+          <div class="value-icon">&#128293;</div>
+          <h3>The Problem</h3>
+          <p>Slow renders sneak into production undetected. Users experience lag while your metrics look fine.</p>
+        </div>
+        <div class="value-card old animate-on-scroll">
+          <div class="value-icon">&#128336;</div>
+          <h3>Traditional Approach</h3>
+          <p>Manual profiling is time-consuming, inconsistent, and easily forgotten during code reviews.</p>
+        </div>
+        <div class="value-card new animate-on-scroll">
+          <div class="value-icon">&#10024;</div>
+          <h3>Our Solution</h3>
+          <p>Automated performance budgets in your test suite. Fail builds before regressions reach production.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="animate-on-scroll">
+    <div class="container">
+      <div class="section-intro">
+        <span class="section-tag">Capabilities</span>
+        <h2>Everything You Need</h2>
+        <p>Comprehensive performance testing tools built for modern React applications.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#128202;</div>
+          <h3>React Profiler</h3>
+          <p>Real render metrics via React's Profiler API with automatic phase detection.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#127917;</div>
+          <h3>Playwright Integration</h3>
+          <p>Drop-in test.performance() helper with zero configuration required.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#129513;</div>
+          <h3>Component Profiling</h3>
+          <p>Per-component breakdown with mount/update phase tracking.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#128034;</div>
+          <h3>CPU Throttling</h3>
+          <p>Simulate slower devices with 4x, 6x, or custom CPU slowdown.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#127760;</div>
+          <h3>Network Throttling</h3>
+          <p>3G/4G presets or custom conditions for realistic testing.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#127902;</div>
+          <h3>FPS Tracking</h3>
+          <p>Frame rate measurement via CDP Tracing with threshold assertions.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#129504;</div>
+          <h3>Memory Tracking</h3>
+          <p>Detect memory leaks with heap growth monitoring and alerts.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#128147;</div>
+          <h3>Web Vitals</h3>
+          <p>LCP, INP, CLS tracking that works in all browsers.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#128200;</div>
+          <h3>Percentile Metrics</h3>
+          <p>P50/P95/P99 thresholds for statistical reliability.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#128293;</div>
+          <h3>Trace Export</h3>
+          <p>Chrome DevTools compatible flamegraph export for deep analysis.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#9729;</div>
+          <h3>CI/CD Ready</h3>
+          <p>Auto warmup and environment-aware thresholds for CI.</p>
+        </div>
+        <div class="feature-card animate-on-scroll">
+          <div class="feature-icon">&#9889;</div>
+          <h3>Zero Boilerplate</h3>
+          <p>Minimal configuration to get started in minutes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="quickstart" class="animate-on-scroll">
+    <div class="container">
+      <div class="section-intro">
+        <span class="section-tag">Getting Started</span>
+        <h2>Up and Running in Minutes</h2>
+        <p>Three simple steps to add automated performance testing.</p>
+      </div>
+      <div class="quickstart-layout">
+        <div class="steps-nav">
+          <div class="step-item active">
+            <div class="step-num">1</div>
+            <div class="step-info">
+              <h3>Install</h3>
+              <p>Add the package</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-info">
+              <h3>Wrap</h3>
+              <p>Add provider</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-info">
+              <h3>Test</h3>
+              <p>Write tests</p>
+            </div>
+          </div>
+        </div>
+        <div class="code-panels">
+          <div class="code-panel" data-step="0">
+            <div class="code-panel-header">
+              <span>Terminal</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-panel-body">
+              <pre><span class="cmt"># Install the package</span>
+npm install react-performance-tracking</pre>
+            </div>
+          </div>
+          <div class="code-panel" data-step="1">
+            <div class="code-panel-header">
+              <span>App.tsx</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-panel-body">
+              <pre><span class="kw">import</span> { <span class="prop">Profiler</span> } <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> {
+  <span class="prop">PerformanceProvider</span>,
+  <span class="prop">usePerformanceRequired</span>
+} <span class="kw">from</span> <span class="str">'react-performance-tracking/react'</span>;
+
+<span class="kw">function</span> <span class="fn">App</span>() {
+  <span class="kw">return</span> (
+    <span class="tag">&lt;PerformanceProvider&gt;</span>
+      <span class="tag">&lt;MyComponent /&gt;</span>
+    <span class="tag">&lt;/PerformanceProvider&gt;</span>
+  );
+}
+
+<span class="kw">function</span> <span class="fn">MyComponent</span>() {
+  <span class="kw">const</span> { <span class="prop">onProfilerRender</span> } = <span class="fn">usePerformanceRequired</span>();
+  <span class="kw">return</span> (
+    <span class="tag">&lt;Profiler</span> <span class="prop">id</span>=<span class="str">"my-component"</span> <span class="prop">onRender</span>={<span class="prop">onProfilerRender</span>}<span class="tag">&gt;</span>
+      <span class="cmt">{/* Your component content */}</span>
+    <span class="tag">&lt;/Profiler&gt;</span>
+  );
+}</pre>
+            </div>
+          </div>
+          <div class="code-panel" data-step="2">
+            <div class="code-panel-header">
+              <span>checkout.perf.spec.ts</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <div class="code-panel-body">
+              <pre><span class="kw">import</span> { <span class="prop">test</span> <span class="kw">as</span> base } <span class="kw">from</span> <span class="str">'@playwright/test'</span>;
+<span class="kw">import</span> { <span class="prop">createPerformanceTest</span> } <span class="kw">from</span> <span class="str">'react-performance-tracking/playwright'</span>;
+
+<span class="kw">const</span> test = <span class="fn">createPerformanceTest</span>(base);
+
+test.<span class="fn">performance</span>({
+  <span class="prop">warmup</span>: <span class="kw">true</span>,                       <span class="cmt">// First iteration for cache warming</span>
+  <span class="prop">iterations</span>: <span class="num">5</span>,                      <span class="cmt">// Run 5 times for reliability</span>
+  <span class="prop">throttleRate</span>: <span class="num">4</span>,                    <span class="cmt">// Simulate 4x slower CPU</span>
+  <span class="prop">networkThrottling</span>: <span class="str">'fast-3g'</span>, <span class="cmt">// Simulate 3G
+    network</span>
+  <span class="prop">exportTrace</span>: <span class="kw">true</span>,                  <span class="cmt">// Chrome DevTools flamegraph</span>
+  <span class="prop">thresholds</span>: {
+    <span class="prop">base</span>: {
+      <span class="prop">profiler</span>: {
+        <span class="str">'my-component'</span>: {
+          <span class="prop">duration</span>: { <span class="prop">avg</span>: <span class="num">500</span>, <span class="prop">p95</span>: <span class="num">200</span>, <span class="prop">p99</span>: <span class="num">400</span> },
+          <span class="prop">rerenders</span>: <span class="num">15</span>,
+        },
+      },
+      <span class="prop">fps</span>: <span class="num">60</span>,
+      <span class="prop">memory</span>: { <span class="prop">heapGrowth</span>: <span class="num">10</span> * <span class="num">1024</span> * <span class="num">1024</span> },
+      <span class="prop">webVitals</span>: { <span class="prop">lcp</span>: <span class="num">2500</span>, <span class="prop">inp</span>: <span class="num">200</span>, <span class="prop">cls</span>: <span class="num">0.1</span> },
+    },
+    <span class="prop">ci</span>: {                              <span class="cmt">// More lenient in CI</span>
+      <span class="prop">profiler</span>: { <span class="str">'my-component'</span>: { <span class="prop">duration</span>: {
+      <span class="prop">avg</span>: <span class="num">600</span> } } },
+    },
+  },
+})(<span class="str">'checkout flow performance'</span>, <span class="kw">async</span> ({ <span class="prop">page</span>, <span class="prop">performance</span> }) =&gt; {
+  <span class="kw">await</span> page.<span class="fn">goto</span>(<span class="str">'/checkout'</span>);
+  <span class="kw">await</span> performance.<span class="fn">init</span>();
+
+  <span class="cmt">// Track custom timing metrics</span>
+  performance.<span class="fn">mark</span>(<span class="str">'form-start'</span>);
+  <span class="kw">await</span> page.<span class="fn">fill</span>(<span class="str">'input[name="email"]'</span>, <span class="str">'test@example.com'</span>);
+  <span class="kw">await</span> page.<span class="fn">click</span>(<span class="str">'button[type="submit"]'</span>);
+  <span class="kw">await</span> performance.<span class="fn">waitUntilStable</span>();
+  performance.<span class="fn">mark</span>(<span class="str">'form-end'</span>);
+
+  <span class="kw">const</span> formTime = performance.<span class="fn">measure</span>(<span class="str">'form-submit'</span>, <span class="str">'form-start'</span>, <span class="str">'form-end'</span>);
+  console.<span class="fn">log</span>(<span class="str">`Form submission: </span><span class="prop">${formTime}</span><span class="str">ms`</span>);
+});</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="config-builder" class="config-builder-section animate-on-scroll">
+    <div class="container">
+      <div class="section-intro">
+        <span class="section-tag">Interactive Tool</span>
+        <h2>Build Your Configuration</h2>
+        <p>Configure your performance test visually and copy the generated code.</p>
+      </div>
+      <div class="iframe-wrapper">
+        <div class="iframe-loading">
+          <div class="loading-spinner"></div>
+          <span>Loading Config Builder...</span>
+        </div>
+        <iframe id="configBuilderFrame" src="/embed/config-builder" title="Performance Test Config Builder" loading="lazy"
+          onload="this.parentElement.classList.add('loaded')"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section animate-on-scroll">
+    <div class="container">
+      <div class="cta-box">
+        <h2>Catch Slowdowns Before Users Do</h2>
+        <p>Join teams using automated performance testing to catch regressions before they reach users.</p>
+        <div class="cta-actions">
+          <a href="https://github.com/mkaczkowski/react-performance-tracking" target="_blank" class="btn btn-primary btn-large">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            Star on GitHub
+          </a>
+          <a href="/docs" class="btn btn-secondary btn-large">
+            Read the Docs
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <a href="#" class="logo footer-logo" aria-label="React Performance Tracking - Back to top">
+            <div class="logo-mark">
+              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="logoGradientFooter" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#8b5cf6"/>
+                  </linearGradient>
+                  <linearGradient id="boltGradientFooter" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#60a5fa"/>
+                    <stop offset="100%" stop-color="#a78bfa"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="45" fill="url(#logoGradientFooter)" opacity="0.15"/>
+                <circle cx="50" cy="50" r="45" stroke="url(#logoGradientFooter)" stroke-width="3" fill="none"/>
+                <path d="M55 25L35 52h15l-5 23 20-27H50l5-23z" fill="url(#boltGradientFooter)"/>
+              </svg>
+            </div>
+          </a>
+          <p>MIT License &bull; Built by Mariusz Kaczkowski</p>
+        </div>
+        <nav class="footer-nav">
+          <a href="https://github.com/mkaczkowski/react-performance-tracking" target="_blank">GitHub</a>
+          <a href="https://www.npmjs.com/package/react-performance-tracking" target="_blank">npm</a>
+          <a href="/docs">Documentation</a>
+          <a href="https://github.com/mkaczkowski/react-performance-tracking/issues" target="_blank">Issues</a>
+          <a href="https://www.linkedin.com/in/mkaczkowski/" target="_blank" aria-label="LinkedIn" style="display: inline-flex; align-items: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          </a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Font loading detection - apply custom fonts when ready
+    if ('fonts' in document) {
+      Promise.all([
+        document.fonts.load('400 1em "Plus Jakarta Sans"'),
+        document.fonts.load('400 1em "Fira Code"')
+      ]).then(() => {
+        document.documentElement.classList.add('fonts-loaded');
+      });
+    }
+
+    // Nav scroll effect
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // Mobile menu toggle
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileNav = document.getElementById('mobileNav');
+    const mobileNavOverlay = document.getElementById('mobileNavOverlay');
+
+    function toggleMobileMenu() {
+      const isOpen = mobileMenuBtn.classList.toggle('active');
+      mobileNav.classList.toggle('active', isOpen);
+      mobileNavOverlay.classList.toggle('active', isOpen);
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+    }
+
+    function closeMobileMenu() {
+      mobileMenuBtn.classList.remove('active');
+      mobileNav.classList.remove('active');
+      mobileNavOverlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+    mobileNavOverlay.addEventListener('click', closeMobileMenu);
+
+    // Close mobile menu when clicking a link
+    mobileNav.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        if (!link.getAttribute('target')) {
+          closeMobileMenu();
+        }
+      });
+    });
+
+    // Close mobile menu on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && mobileMenuBtn.classList.contains('active')) {
+        closeMobileMenu();
+      }
+    });
+
+    // Copy code
+    function copyCode(btn) {
+      const code = btn.closest('.code-panel').querySelector('pre').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.color = 'var(--accent-emerald)';
+        setTimeout(() => {
+          btn.textContent = original;
+          btn.style.color = '';
+        }, 2000);
+      });
+    }
+
+    // Scroll animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => {
+            entry.target.classList.add('visible');
+          }, i * 100);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
+
+    document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+
+    // Step nav interaction - click to scroll
+    const stepItems = document.querySelectorAll('.step-item');
+    const codePanels = document.querySelectorAll('.code-panel[data-step]');
+
+    stepItems.forEach((item, index) => {
+      item.addEventListener('click', () => {
+        const targetPanel = document.querySelector(`.code-panel[data-step="${index}"]`);
+        if (targetPanel) {
+          targetPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
+
+    // Observe code panels to update active step on scroll
+    const stepObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const stepIndex = entry.target.dataset.step;
+          stepItems.forEach((item, i) => {
+            item.classList.toggle('active', i === parseInt(stepIndex));
+          });
+        }
+      });
+    }, {
+      threshold: 0.5,
+      rootMargin: '-20% 0px -20% 0px'
+    });
+
+    codePanels.forEach(panel => stepObserver.observe(panel));
+  </script>
+</body>
+</html>

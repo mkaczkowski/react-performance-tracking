@@ -1,0 +1,185 @@
+# React Setup
+
+Configure your React application for performance profiling.
+
+## Overview
+
+The React layer consists of:
+
+1. **PerformanceProvider** – Context provider that creates the metrics store
+2. **usePerformance / usePerformanceRequired** – Hooks to access the profiler callback
+3. **React's Profiler component** – Wraps components you want to measure
+
+## Basic Setup
+
+### 1. Add the Provider
+
+Wrap your app root with `PerformanceProvider`:
+
+```tsx
+// App.tsx
+import { PerformanceProvider } from 'react-performance-tracking/react';
+
+function App() {
+  return (
+    <PerformanceProvider>
+      <YourApp />
+    </PerformanceProvider>
+  );
+}
+```
+
+### 2. Wrap Components with Profiler
+
+Use React's built-in `<Profiler>` to measure specific components:
+
+```tsx
+import { Profiler } from 'react';
+import { usePerformanceRequired } from 'react-performance-tracking/react';
+
+function MyComponent() {
+  const { onProfilerRender } = usePerformanceRequired();
+
+  return (
+    <Profiler id="my-component" onRender={onProfilerRender}>
+      <div>Component content</div>
+    </Profiler>
+  );
+}
+```
+
+:::tip
+The `id` prop is important – it appears in test output and can have component-specific thresholds configured.
+:::
+
+## Available Hooks
+
+### usePerformance()
+
+Returns the profiler callback, or `null` if outside the provider. Use when profiling is optional:
+
+```tsx
+function OptionalProfiling() {
+  const profiler = usePerformance();
+
+  if (!profiler) {
+    // Render without profiling
+    return <div>Content</div>;
+  }
+
+  return (
+    <Profiler id="optional" onRender={profiler.onProfilerRender}>
+      <div>Content</div>
+    </Profiler>
+  );
+}
+```
+
+### usePerformanceRequired()
+
+Same as `usePerformance()` but throws if used outside the provider. Use when profiling is mandatory:
+
+```tsx
+function RequiredProfiling() {
+  // Throws if PerformanceProvider is missing
+  const { onProfilerRender } = usePerformanceRequired();
+
+  return (
+    <Profiler id="required" onRender={onProfilerRender}>
+      <div>Content</div>
+    </Profiler>
+  );
+}
+```
+
+## Multi-Component Profiling
+
+Profile multiple components independently:
+
+```tsx
+function Dashboard() {
+  const { onProfilerRender } = usePerformanceRequired();
+
+  return (
+    <div className="dashboard">
+      <Profiler id="header" onRender={onProfilerRender}>
+        <Header />
+      </Profiler>
+
+      <Profiler id="sidebar" onRender={onProfilerRender}>
+        <Sidebar />
+      </Profiler>
+
+      <Profiler id="main-content" onRender={onProfilerRender}>
+        <MainContent />
+      </Profiler>
+    </div>
+  );
+}
+```
+
+Test output shows per-component tables when multiple components are profiled:
+
+```
+ COMPONENT: main-content
+┌──────────┬───────────┬───────────┬────────┐
+│ Metric   │ Actual    │ Threshold │ Status │
+├──────────┼───────────┼───────────┼────────┤
+│ Duration │ 150.00ms  │  < 600ms  │ ✓ PASS │
+│ Renders  │       12  │      ≤ 24 │ ✓ PASS │
+└──────────┴───────────┴───────────┴────────┘
+ • Phases: mount: 1, update: 11
+
+ COMPONENT: sidebar
+┌──────────┬───────────┬───────────┬────────┐
+│ Metric   │ Actual    │ Threshold │ Status │
+├──────────┼───────────┼───────────┼────────┤
+│ Duration │  45.00ms  │  < 600ms  │ ✓ PASS │
+│ Renders  │        6  │      ≤ 24 │ ✓ PASS │
+└──────────┴───────────┴───────────┴────────┘
+ • Phases: mount: 1, update: 5
+
+ COMPONENT: header
+┌──────────┬───────────┬───────────┬────────┐
+│ Metric   │ Actual    │ Threshold │ Status │
+├──────────┼───────────┼───────────┼────────┤
+│ Duration │  25.00ms  │  < 600ms  │ ✓ PASS │
+│ Renders  │        3  │      ≤ 24 │ ✓ PASS │
+└──────────┴───────────┴───────────┴────────┘
+ • Phases: mount: 1, update: 2
+```
+
+## How It Works
+
+When `onProfilerRender` is called by React's Profiler, the library:
+
+1. Records the render sample (duration, phase, component ID)
+2. Stores it in `window.__REACT_PERFORMANCE__.samples`
+3. Updates the per-component aggregations in `components`
+
+During tests, Playwright reads this data via `page.evaluate()`:
+
+```ts
+const state = await page.evaluate(() => window.__REACT_PERFORMANCE__);
+// { samples: [...], components: { header: {...}, ... } }
+```
+
+## Production Builds
+
+:::warning
+React Profiler is disabled in production builds by default. If you test production builds, you'll need to enable it via the React DevTools profiler or build with profiling enabled.
+:::
+
+For Create React App:
+
+```bash
+# Build with profiling enabled
+REACT_APP_PROFILER=true npm run build
+```
+
+For Vite/custom builds, ensure `@babel/plugin-transform-react-jsx` uses `automatic` runtime with profiling.
+
+## Next Steps
+
+- [Playwright Setup](/docs/guides/playwright-setup) – Set up the test integration
+- [Configuring Thresholds](/docs/guides/thresholds) – Set per-component budgets

@@ -1,0 +1,282 @@
+# Playwright API
+
+Playwright exports for performance testing.
+
+## Essential Exports
+
+What most users need:
+
+```ts
+import {
+  createPerformanceTest,
+  PERFORMANCE_CONFIG,
+  NETWORK_PRESETS,
+  setLogLevel,
+} from 'react-performance-tracking/playwright';
+```
+
+## createPerformanceTest(base)
+
+Factory function that extends Playwright test with `test.performance()` method.
+
+```ts
+import { test as base } from '@playwright/test';
+import { createPerformanceTest } from 'react-performance-tracking/playwright';
+
+export const test = createPerformanceTest(base);
+export { expect } from '@playwright/test';
+```
+
+### Returns
+
+Extended Playwright test object with `performance()` method:
+
+```ts
+test.performance(config)('title', async ({ page, performance }) => {
+  // Test implementation
+});
+```
+
+## PERFORMANCE_CONFIG
+
+Frozen configuration object with default settings:
+
+```ts
+const PERFORMANCE_CONFIG = {
+  profiler: {
+    stabilityPeriodMs: 1000,
+    checkIntervalMs: 100,
+    maxWaitMs: 5000,
+    initializationTimeoutMs: 10000,
+  },
+  buffers: {
+    duration: 20,
+    rerenders: 20,
+    fps: 20,
+    heapGrowth: 20,
+    webVitals: { lcp: 20, inp: 20, cls: 20 },
+  },
+  throttling: {
+    defaultRate: 1,
+  },
+  fps: {
+    defaultThreshold: 60,
+  },
+  memory: {
+    defaultThreshold: 0,
+  },
+  webVitals: {
+    enabled: false,
+  },
+  iterations: {
+    defaultCount: 1,
+  },
+  get isCI() {
+    return Boolean(process.env.CI);
+  },
+};
+```
+
+## NETWORK_PRESETS
+
+Predefined network throttling presets (based on Chrome DevTools):
+
+```ts
+const NETWORK_PRESETS = {
+  'slow-3g': { latency: 400, downloadThroughput: 64000, uploadThroughput: 64000 },      // 500 Kbps
+  'fast-3g': { latency: 150, downloadThroughput: 200000, uploadThroughput: 94000 },     // 1.6 Mbps / 750 Kbps
+  'slow-4g': { latency: 100, downloadThroughput: 375000, uploadThroughput: 188000 },    // 3 Mbps / 1.5 Mbps
+  'fast-4g': { latency: 20, downloadThroughput: 1250000, uploadThroughput: 625000 },    // 10 Mbps / 5 Mbps
+  'offline': { latency: 0, downloadThroughput: 0, uploadThroughput: 0, offline: true },
+};
+// Note: throughput values are in bytes per second
+```
+
+## setLogLevel(level)
+
+Control console output verbosity:
+
+```ts
+setLogLevel('silent');  // Disable all output
+setLogLevel('error');   // Only errors
+setLogLevel('warn');    // Errors + warnings
+setLogLevel('info');    // Default
+setLogLevel('debug');   // Everything
+```
+
+## Performance Fixture Methods
+
+Available on the `performance` fixture in tests:
+
+### init()
+
+Wait for profiler initialization and stability.
+
+```ts
+await performance.init();
+```
+
+### reset()
+
+Clear all collected samples and custom metrics.
+
+```ts
+await performance.reset();
+```
+
+### waitForInitialization(timeout?)
+
+Wait for the profiler to be ready.
+
+```ts
+await performance.waitForInitialization(15000); // 15s timeout
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `timeout` | `number` | `10000` | Timeout in milliseconds |
+
+### waitUntilStable(options?)
+
+Wait for React to settle.
+
+```ts
+await performance.waitUntilStable({
+  stabilityPeriodMs: 500,
+  checkIntervalMs: 100,
+  maxWaitMs: 5000,
+});
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `stabilityPeriodMs` | `number` | `1000` | Time without renders to be considered stable |
+| `checkIntervalMs` | `number` | `100` | Interval between stability checks |
+| `maxWaitMs` | `number` | `5000` | Maximum wait time |
+
+### mark(name)
+
+Record a custom performance mark.
+
+```ts
+performance.mark('operation-start');
+```
+
+### measure(name, startMark, endMark)
+
+Create a measure between two marks. Returns duration in milliseconds.
+
+```ts
+const duration = performance.measure('operation', 'start', 'end');
+```
+
+### getCustomMetrics()
+
+Get all recorded marks and measures.
+
+```ts
+const metrics = performance.getCustomMetrics();
+// {
+//   marks: [{ name, timestamp }, ...],
+//   measures: [{ name, duration, startMark, endMark }, ...]
+// }
+```
+
+## Advanced Exports
+
+For custom wrappers and low-level control:
+
+```ts
+import {
+  // Building blocks
+  createPerformanceInstance,
+  createConfiguredTestInfo,
+  addConfigurationAnnotation,
+  PerformanceTestRunner,
+
+  // Assertions
+  assertPerformanceThresholds,
+  assertDurationThreshold,
+  assertSampleCountThreshold,
+  assertFPSThreshold,
+  assertHeapGrowthThreshold,
+
+  // CDP Features
+  featureRegistry,
+  cpuThrottlingFeature,
+  networkThrottlingFeature,
+  fpsTrackingFeature,
+  memoryTrackingFeature,
+  createFeatureCoordination,
+
+  // Feature utilities
+  createCDPSession,
+  createFeatureHandle,
+  createResettableFeatureHandle,
+
+  // Network utilities
+  resolveNetworkConditions,
+  formatNetworkConditions,
+  isNetworkPreset,
+
+  // Profiler utilities
+  captureProfilerState,
+  logger,
+
+  // Web Vitals
+  injectWebVitalsObserver,
+  captureWebVitals,
+  resetWebVitals,
+  assertLCPThreshold,
+  assertINPThreshold,
+  assertCLSThreshold,
+
+  // Percentiles
+  calculatePercentile,
+  calculatePercentiles,
+  calculatePercentileMetrics,
+
+  // Trace
+  startTraceCapture,
+  exportTrace,
+} from 'react-performance-tracking/playwright';
+```
+
+### createPerformanceInstance(page)
+
+Creates a standalone performance fixture for a page.
+
+```ts
+const perf = createPerformanceInstance(page);
+await perf.init();
+```
+
+### PerformanceTestRunner
+
+Orchestrates test execution with warmup, iterations, and assertions.
+
+```ts
+const runner = new PerformanceTestRunner(page, fixtures, configuredTestInfo);
+await runner.execute(async () => {
+  await testFn(fixtures, configuredTestInfo);
+});
+```
+
+## Type Exports
+
+```ts
+import type {
+  TestConfig,
+  PerformanceInstance,
+  ConfiguredTestInfo,
+  BasePerformanceFixtures,
+  PerformanceStore,
+  PerformanceSample,
+} from 'react-performance-tracking/playwright';
+```
+
+## Related
+
+- [Playwright Setup Guide](/docs/guides/playwright-setup) – Setup instructions
+- [Configuration Reference](/docs/api/configuration) – All options
+- [Custom Fixtures](/docs/advanced/custom-fixtures) – Extending functionality

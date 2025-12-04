@@ -1,0 +1,155 @@
+[
+  {
+    "id": "iteration-averaging",
+    "order": 1,
+    "priority": "high",
+    "title": "Test Iteration Averaging",
+    "description": "Run performance tests multiple times and calculate average values for more reliable threshold comparisons. Reduces noise from one-off spikes.",
+    "acceptance_criteria": [
+      "Unit tests pass",
+      "E2E test added",
+      "Default iterations: 1 (backward compatible)",
+      "Average calculation for all metrics (duration, rerenders, avg)",
+      "Individual iteration results stored in iterationResults array",
+      "Optional standard deviation calculation",
+      "Warmup iteration option (discard first run)",
+      "Types exported from playwright entry point"
+    ],
+    "status": "completed"
+  },
+  {
+    "id": "memory-metrics",
+    "order": 2,
+    "priority": "high",
+    "title": "Memory Metrics Tracking",
+    "description": "Add heap size tracking via CDP's Performance.getMetrics to help detect memory leaks during performance tests.",
+    "acceptance_criteria": [
+      "Unit tests pass",
+      "E2E test added",
+      "CDP Performance.getMetrics integration",
+      "Track jsHeapSizeUsed, jsHeapSizeTotal, heapGrowth",
+      "Memory metrics included in test output",
+      "Optional threshold validation for heap growth",
+      "Types exported from playwright entry point"
+    ],
+    "status": "completed"
+  },
+  {
+    "id": "network-throttling",
+    "order": 3,
+    "priority": "high",
+    "title": "Network Throttling",
+    "description": "Add network condition simulation alongside CPU throttling using CDP Network.emulateNetworkConditions.",
+    "acceptance_criteria": [
+      "Unit tests pass",
+      "E2E test added",
+      "CDP Network.emulateNetworkConditions integration",
+      "Preset network profiles (slow-3g, fast-3g, offline)",
+      "Custom network config support ({ latency, download, upload })",
+      "Integration with PerformanceTestRunner",
+      "Types exported from playwright entry point"
+    ],
+    "status": "completed"
+  },
+  {
+    "id": "custom-metrics",
+    "order": 4,
+    "priority": "high",
+    "title": "Custom Metrics API",
+    "description": "Allow users to track custom performance marks within their tests using performance.mark().",
+    "acceptance_criteria": [
+      "Unit tests pass",
+      "E2E test added",
+      "performance.mark(name) API on fixture",
+      "performance.measure(name, startMark, endMark) API",
+      "Custom marks included in metrics output",
+      "Timestamp capture relative to test start",
+      "Types exported from playwright entry point"
+    ],
+    "status": "completed"
+  },
+  {
+    "id": "component-profiling",
+    "order": 5,
+    "priority": "high",
+    "title": "Component-Level Profiling",
+    "description": "Track individual component performance in multi-profiler setups. Extends existing React profiler functionality.",
+    "acceptance_criteria": [
+      "Unit tests pass",
+      "E2E test added",
+      "Named profiler support in ProfilerProvider",
+      "Per-component metrics in output (components: { name: { duration, rerenders } })",
+      "Aggregation logic for multiple profilers",
+      "Backward compatible with single profiler usage",
+      "Types exported from react entry point"
+    ],
+    "status": "completed"
+  },
+  {
+    "id": "web-vitals",
+    "order": 6,
+    "priority": "medium",
+    "title": "Web Vitals Integration",
+    "description": "Capture Web Vitals (INP, LCP, CLS) via PerformanceObserver for real user experience metrics.",
+    "acceptance_criteria": [
+      "Unit tests pass",
+      "E2E test added",
+      "PerformanceObserver integration",
+      "LCP (Largest Contentful Paint) capture",
+      "INP (Interaction to Next Paint) capture",
+      "CLS (Cumulative Layout Shift) capture",
+      "Threshold validation for web vitals",
+      "Types exported from playwright entry point"
+    ],
+    "status": "completed"
+  },
+  {
+    "id": "percentile-metrics",
+    "order": 8,
+    "priority": "medium",
+    "title": "Percentile Metrics (P50, P95, P99)",
+    "description": "Support percentile-based thresholds for tests with multiple iterations. Requires iteration-averaging feature.",
+    "acceptance_criteria": [
+      "Unit tests pass",
+      "E2E test added",
+      "Percentile calculation (p50, p95, p99)",
+      "Percentile threshold format: { p50: 100, p95: 200, p99: 500 }",
+      "Validation against percentile thresholds",
+      "Requires iterations > 1 for percentile thresholds",
+      "Types exported from playwright entry point"
+    ],
+    "status": "completed"
+  },
+  {
+    "id": "html-reporter",
+    "order": 9,
+    "priority": "medium",
+    "title": "HTML Report Generator",
+    "description": "Create a standalone performance report with charts for visualizing test results.",
+    "acceptance_criteria": [
+      "Playwright reporter interface implementation",
+      "HTML template generation",
+      "Chart visualization (bar/line charts)",
+      "Historical trend visualization if baseline data available",
+      "Configurable output file path",
+      "CSS styling for readable reports",
+      "Types exported"
+    ],
+    "status": "pending"
+  },
+  {
+    "id": "flamegraph",
+    "order": 10,
+    "priority": "lower",
+    "title": "Flamegraph Generation",
+    "description": "Export Chrome DevTools trace for visualization in DevTools or external tools.",
+    "acceptance_criteria": [
+      "CDP trace capture during test execution",
+      "JSON trace file output",
+      "Compatible with Chrome DevTools import",
+      "Configurable output path (exportTrace option)",
+      "Types exported from playwright entry point"
+    ],
+    "status": "completed"
+  }
+]

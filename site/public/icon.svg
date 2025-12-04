@@ -1,0 +1,15 @@
+<svg viewBox="3 3 94 94" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ringGradient" gradientUnits="userSpaceOnUse" x1="5" y1="5" x2="95" y2="95">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="boltGradient" gradientUnits="userSpaceOnUse" x1="35" y1="25" x2="65" y2="75">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="45" fill="url(#ringGradient)" fill-opacity="0.15"/>
+  <circle cx="50" cy="50" r="45" stroke="url(#ringGradient)" stroke-width="3" fill="none"/>
+  <path d="M55 25L35 52h15l-5 23 20-27H50l5-23z" fill="url(#boltGradient)"/>
+</svg>

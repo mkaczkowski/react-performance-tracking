@@ -1,0 +1,258 @@
+# Configuring Thresholds
+
+Set performance budgets and catch regressions automatically.
+
+## Overview
+
+Thresholds define the maximum acceptable values for performance metrics. When a threshold is exceeded, the test fails with a clear error message showing actual vs expected values.
+
+## Basic Thresholds
+
+Every test needs at least profiler thresholds:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: {
+        '*': { duration: 500, rerenders: 20 },
+      },
+    },
+  },
+})('page load', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+});
+```
+
+| Property | Description |
+|----------|-------------|
+| `duration` | Maximum total render time in milliseconds |
+| `rerenders` | Maximum number of React renders |
+
+## Component-Specific Thresholds
+
+Use different budgets for different components:
+
+```ts
+thresholds: {
+  base: {
+    profiler: {
+      '*': { duration: 1000, rerenders: 30 },      // Default fallback
+      'header': { duration: 100, rerenders: 5 },   // Header should be fast
+      'sidebar': { duration: 200, rerenders: 10 }, // Sidebar moderate
+      'content': { duration: 600, rerenders: 20 }, // Content can be slower
+    },
+  },
+}
+```
+
+The `'*'` key is the default fallback for any component not explicitly configured.
+
+:::tip
+Component IDs match the `id` prop you pass to `<Profiler id="header">` in your React code.
+:::
+
+## Environment-Specific Thresholds
+
+Use different thresholds for CI vs local development:
+
+```ts
+thresholds: {
+  base: {
+    profiler: { '*': { duration: 500, rerenders: 20 } },
+  },
+  ci: {
+    profiler: { '*': { duration: 800, rerenders: 30 } }, // More lenient in CI
+  },
+}
+```
+
+| Environment | Thresholds Applied | Detection |
+|-------------|-------------------|-----------|
+| CI | `base` merged with `ci` | `process.env.CI` is truthy |
+| Local | `base` only | `process.env.CI` is falsy |
+
+## FPS Thresholds
+
+Track frames per second (Chromium only):
+
+```ts
+thresholds: {
+  base: {
+    profiler: { '*': { duration: 500, rerenders: 20 } },
+    fps: 60, // Minimum average FPS
+  },
+}
+```
+
+:::info
+FPS tracking is **automatically enabled** when you configure `fps` thresholds. No additional flags needed.
+:::
+
+### Percentile FPS Thresholds
+
+For tests with multiple iterations, use percentile thresholds:
+
+```ts
+thresholds: {
+  base: {
+    profiler: { '*': { duration: 500, rerenders: 20 } },
+    fps: {
+      avg: 60,   // Minimum average
+      p50: 58,   // 50th percentile
+      p95: 50,   // 95th percentile
+      p99: 45,   // 99th percentile
+    },
+  },
+}
+```
+
+## Memory Thresholds
+
+Track heap growth to detect memory leaks (Chromium only):
+
+```ts
+thresholds: {
+  base: {
+    profiler: { '*': { duration: 500, rerenders: 20 } },
+    memory: {
+      heapGrowth: 10 * 1024 * 1024, // Max 10MB growth
+    },
+  },
+}
+```
+
+:::info
+Memory tracking is **automatically enabled** when you configure `memory.heapGrowth` thresholds.
+:::
+
+## Web Vitals Thresholds
+
+Track Core Web Vitals (all browsers):
+
+```ts
+thresholds: {
+  base: {
+    profiler: { '*': { duration: 500, rerenders: 20 } },
+    webVitals: {
+      lcp: 2500,  // Largest Contentful Paint (ms)
+      inp: 200,   // Interaction to Next Paint (ms)
+      cls: 0.1,   // Cumulative Layout Shift (score)
+    },
+  },
+}
+```
+
+**Google's recommendations:**
+
+| Metric | Good | Poor |
+|--------|------|------|
+| LCP | ≤2500ms | >4000ms |
+| INP | ≤200ms | >500ms |
+| CLS | ≤0.1 | >0.25 |
+
+## Buffers
+
+Add tolerance to thresholds to account for variance:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 20 } },
+      fps: 60,
+    },
+  },
+  buffers: {
+    duration: 20,    // 500ms + 20% = 600ms max
+    rerenders: 20,   // 20 + 20% = 24 max
+    fps: 15,         // 60 FPS - 15% = 51 FPS min
+    heapGrowth: 25,  // 25% tolerance on heap growth
+    webVitals: {
+      lcp: 20,       // 20% buffer on LCP
+      inp: 20,       // 20% buffer on INP
+      cls: 20,       // 20% buffer on CLS
+    },
+  },
+})
+```
+
+**Buffer application:**
+
+| Metric | Application | Example |
+|--------|-------------|---------|
+| Duration | Additive | 500ms + 20% = 600ms max |
+| Rerenders | Additive | 20 + 20% = 24 max |
+| FPS | Subtractive | 60 - 20% = 48 FPS min |
+| Heap Growth | Additive | 10MB + 20% = 12MB max |
+| Web Vitals | Additive | 2500ms + 20% = 3000ms max |
+
+Default buffer is **20%** for all metrics.
+
+## Percentile Thresholds
+
+For tests with multiple iterations, use percentile thresholds:
+
+```ts
+test.performance({
+  iterations: 10,
+  thresholds: {
+    base: {
+      profiler: {
+        '*': {
+          duration: {
+            avg: 500,   // Average across iterations
+            p50: 100,   // 50th percentile (median)
+            p95: 200,   // 95th percentile
+            p99: 400,   // 99th percentile
+          },
+          rerenders: 20,
+        },
+      },
+    },
+  },
+})
+```
+
+Percentiles inherit the parent metric's buffer (e.g., `duration` percentiles use the `duration` buffer).
+
+## Example: Full Configuration
+
+```ts
+test.performance({
+  warmup: true,
+  iterations: 5,
+  throttleRate: 4,
+  networkThrottling: 'fast-3g',
+  thresholds: {
+    base: {
+      profiler: {
+        '*': {
+          duration: { avg: 500, p95: 700 },
+          rerenders: 20,
+        },
+        'header': { duration: 100, rerenders: 5 },
+      },
+      fps: { avg: 55, p95: 45 },
+      memory: { heapGrowth: 10 * 1024 * 1024 },
+      webVitals: { lcp: 2500, inp: 200, cls: 0.1 },
+    },
+    ci: {
+      profiler: {
+        '*': { duration: { avg: 800, p95: 1000 } },
+      },
+    },
+  },
+  buffers: {
+    duration: 25,
+    fps: 10,
+  },
+})
+```
+
+## Next Steps
+
+- [CPU & Network Throttling](/docs/guides/throttling) – Simulate real-world conditions
+- [Custom Metrics](/docs/guides/custom-metrics) – Track custom timing
+- [Configuration Reference](/docs/api/configuration) – All options

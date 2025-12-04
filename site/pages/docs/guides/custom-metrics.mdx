@@ -1,0 +1,220 @@
+# Custom Metrics
+
+Track custom timing metrics beyond React renders.
+
+## Overview
+
+While React Profiler captures render metrics, you often need to track other operations:
+
+- API fetch times
+- Animation durations
+- Multi-step wizard flows
+- Time to interactive
+
+Custom metrics use the Performance API's `mark()` and `measure()` pattern.
+
+## Basic Usage
+
+### Creating Marks
+
+Marks are timestamps that record when something happened:
+
+```ts
+test.performance({
+  thresholds: { base: { profiler: { '*': { duration: 500, rerenders: 20 } } } },
+})('custom timing', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  performance.mark('operation-start');
+  await page.click('button[data-testid="load"]');
+  await page.waitForSelector('.loaded');
+  performance.mark('operation-end');
+});
+```
+
+### Creating Measures
+
+Measures calculate duration between two marks:
+
+```ts
+performance.mark('fetch-start');
+await page.click('button[data-testid="load"]');
+await page.waitForSelector('.loaded');
+performance.mark('fetch-end');
+
+const duration = performance.measure('data-fetch', 'fetch-start', 'fetch-end');
+console.log(`Fetch took ${duration}ms`);
+```
+
+The `measure()` method returns the duration in milliseconds.
+
+## Tracking Multiple Operations
+
+```ts
+test.performance({
+  thresholds: { base: { profiler: { '*': { duration: 500, rerenders: 20 } } } },
+})('data loading flow', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+
+  // Track fetch operation
+  performance.mark('fetch-start');
+  await page.click('[data-testid="load-data"]');
+  await page.waitForSelector('.data-loaded');
+  performance.mark('fetch-end');
+
+  // Track render operation
+  performance.mark('render-start');
+  await performance.waitUntilStable();
+  performance.mark('render-end');
+
+  // Create measures
+  const fetchTime = performance.measure('data-fetch', 'fetch-start', 'fetch-end');
+  const renderTime = performance.measure('render-time', 'render-start', 'render-end');
+
+  console.log(`Fetch: ${fetchTime}ms, Render: ${renderTime}ms`);
+});
+```
+
+## Multi-Step Flows
+
+Track each step in a multi-step process:
+
+```ts
+test.performance({
+  thresholds: { base: { profiler: { '*': { duration: 800, rerenders: 25 } } } },
+})('wizard flow', async ({ page, performance }) => {
+  await page.goto('/wizard');
+  await performance.init();
+
+  // Step 1
+  performance.mark('step1-start');
+  await page.click('[data-testid="next"]');
+  await performance.waitUntilStable();
+  performance.mark('step1-end');
+
+  // Step 2
+  performance.mark('step2-start');
+  await page.fill('input[name="email"]', 'test@example.com');
+  await page.click('[data-testid="next"]');
+  await performance.waitUntilStable();
+  performance.mark('step2-end');
+
+  // Step 3
+  performance.mark('step3-start');
+  await page.click('[data-testid="submit"]');
+  await performance.waitUntilStable();
+  performance.mark('step3-end');
+
+  // Create measures
+  const step1 = performance.measure('step-1', 'step1-start', 'step1-end');
+  const step2 = performance.measure('step-2', 'step2-start', 'step2-end');
+  const step3 = performance.measure('step-3', 'step3-start', 'step3-end');
+
+  console.log('Step timings:', { step1, step2, step3 });
+});
+```
+
+## Retrieving All Metrics
+
+Use `getCustomMetrics()` to get all recorded marks and measures:
+
+```ts
+const metrics = performance.getCustomMetrics();
+
+console.log('Marks:', metrics.marks);
+// [
+//   { name: 'step1-start', timestamp: 1234567890 },
+//   { name: 'step1-end', timestamp: 1234567990 },
+//   ...
+// ]
+
+console.log('Measures:', metrics.measures);
+// [
+//   { name: 'step-1', duration: 100, startMark: 'step1-start', endMark: 'step1-end' },
+//   ...
+// ]
+```
+
+## Automatic Artifact Inclusion
+
+Custom metrics are automatically included in test artifacts:
+
+```json
+{
+  "testName": "wizard flow",
+  "customMetrics": {
+    "marks": [
+      { "name": "step1-start", "timestamp": 1234567890 },
+      { "name": "step1-end", "timestamp": 1234567990 }
+    ],
+    "measures": [
+      { "name": "step-1", "duration": 100, "startMark": "step1-start", "endMark": "step1-end" }
+    ]
+  }
+}
+```
+
+## Clearing Metrics
+
+When using `reset()`, custom metrics are also cleared:
+
+```ts
+await performance.init();
+
+performance.mark('initial');
+await performance.reset(); // Clears all marks and measures
+
+performance.mark('after-reset');
+const metrics = performance.getCustomMetrics();
+// Only contains 'after-reset', not 'initial'
+```
+
+## Practical Examples
+
+### Time to Interactive
+
+```ts
+performance.mark('navigation-start');
+await page.goto('/');
+performance.mark('dom-loaded');
+
+await page.waitForSelector('[data-testid="interactive-element"]');
+performance.mark('interactive');
+
+const loadTime = performance.measure('load-time', 'navigation-start', 'dom-loaded');
+const tti = performance.measure('time-to-interactive', 'navigation-start', 'interactive');
+
+console.log(`Load: ${loadTime}ms, TTI: ${tti}ms`);
+```
+
+### Animation Timing
+
+```ts
+performance.mark('animation-start');
+await page.click('[data-testid="open-modal"]');
+await page.waitForSelector('.modal.visible');
+performance.mark('animation-end');
+
+const animationTime = performance.measure('modal-animation', 'animation-start', 'animation-end');
+console.log(`Modal animation: ${animationTime}ms`);
+```
+
+### Form Validation
+
+```ts
+performance.mark('validation-start');
+await page.fill('input[name="email"]', 'invalid');
+await page.click('[type="submit"]');
+await page.waitForSelector('.error-message');
+performance.mark('validation-end');
+
+const validationTime = performance.measure('form-validation', 'validation-start', 'validation-end');
+console.log(`Validation feedback: ${validationTime}ms`);
+```
+
+## Next Steps
+
+- [Examples](/docs/examples/basic) – More test patterns
+- [API Reference](/docs/api/playwright) – Complete fixture methods

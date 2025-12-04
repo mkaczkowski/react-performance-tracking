@@ -1,0 +1,82 @@
+# Installation
+
+Install `react-performance-tracking` using your preferred package manager.
+
+## Install the Package
+
+:::code-group
+
+```bash [npm]
+npm install react-performance-tracking
+```
+
+```bash [pnpm]
+pnpm add react-performance-tracking
+```
+
+```bash [yarn]
+yarn add react-performance-tracking
+```
+
+```bash [bun]
+bun add react-performance-tracking
+```
+
+:::
+
+## Peer Dependencies
+
+The package has **optional** peer dependencies. Install only what you need:
+
+```json
+{
+  "react": "^18.0.0 || ^19.0.0",
+  "@playwright/test": "^1.40.0"
+}
+```
+
+| Dependency | When to Install |
+|------------|-----------------|
+| `react` | Using the React provider/hooks in your app |
+| `@playwright/test` | Using the Playwright test integration |
+
+:::info
+Both peer dependencies are optional. If you only need the React layer, install React. If you only need the Playwright layer for testing, install Playwright.
+:::
+
+## Package Exports
+
+The library provides three import paths:
+
+```ts
+// Main entry - re-exports both layers
+import { ... } from 'react-performance-tracking';
+
+// React only - provider and hooks
+import { ... } from 'react-performance-tracking/react';
+
+// Playwright only - test utilities
+import { ... } from 'react-performance-tracking/playwright';
+```
+
+Using specific subpaths helps with tree-shaking and keeps your bundles smaller.
+
+## TypeScript Support
+
+The package is written in TypeScript and includes full type definitions. No additional `@types/*` packages needed.
+
+```ts
+import type {
+  TestConfig,
+  PerformanceInstance,
+  PerformanceSample,
+} from 'react-performance-tracking/playwright';
+```
+
+## Next Steps
+
+Now that you've installed the package:
+
+1. [Quick Start](/docs/quick-start) – Write your first performance test
+2. [React Setup](/docs/guides/react-setup) – Configure the React provider
+3. [Playwright Setup](/docs/guides/playwright-setup) – Set up Playwright integration

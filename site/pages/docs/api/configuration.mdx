@@ -1,0 +1,274 @@
+# Configuration Reference
+
+Complete reference for `test.performance()` configuration.
+
+## Configuration Object
+
+```ts
+test.performance({
+  warmup?: boolean;
+  throttleRate?: number;
+  iterations?: number;
+  networkThrottling?: NetworkThrottlingConfig;
+  exportTrace?: boolean | string;
+  thresholds: ThresholdConfig;
+  buffers?: BufferConfig;
+  name?: string;
+})('test title', async ({ page, performance }) => { ... });
+```
+
+## Options
+
+### warmup
+
+**Type:** `boolean`
+**Default:** `true` on CI, `false` locally
+
+Run a warmup iteration before collecting metrics to reduce cold-start noise.
+
+```ts
+warmup: true
+```
+
+### throttleRate
+
+**Type:** `number`
+**Default:** `1`
+**Browser:** Chromium only
+
+Simulate slower CPU. Higher values = slower execution.
+
+```ts
+throttleRate: 4 // 4x slower CPU
+```
+
+### iterations
+
+**Type:** `number`
+**Default:** `1`
+
+Run the test multiple times for statistical reliability. Enables percentile thresholds.
+
+```ts
+iterations: 10
+```
+
+### networkThrottling
+
+**Type:** `NetworkThrottlingConfig`
+**Default:** `undefined`
+**Browser:** Chromium only
+
+Simulate slow networks.
+
+```ts
+// Preset
+networkThrottling: 'fast-3g'
+
+// Custom
+networkThrottling: {
+  latency: 100,
+  downloadThroughput: 1500,
+  uploadThroughput: 750,
+  offline: false,
+}
+```
+
+**Presets:** `'slow-3g'` | `'fast-3g'` | `'slow-4g'` | `'fast-4g'` | `'offline'`
+
+### exportTrace
+
+**Type:** `boolean | string`
+**Default:** `false`
+**Browser:** Chromium only
+
+Export Chrome DevTools trace for flamegraph visualization.
+
+```ts
+exportTrace: true              // Auto-generated filename
+exportTrace: './trace.json'    // Custom path
+```
+
+### thresholds
+
+**Type:** `ThresholdConfig`
+**Required**
+
+Performance budgets for your test.
+
+```ts
+thresholds: {
+  base: {
+    profiler: {
+      '*': { duration: 500, rerenders: 20 },
+    },
+    fps?: number | FPSThreshold,
+    memory?: { heapGrowth?: number },
+    webVitals?: { lcp?: number, inp?: number, cls?: number },
+  },
+  ci?: {
+    profiler?: { ... },
+    fps?: number | FPSThreshold,
+    memory?: { heapGrowth?: number },
+    webVitals?: { lcp?: number, inp?: number, cls?: number },
+  },
+}
+```
+
+### buffers
+
+**Type:** `BufferConfig`
+**Default:** 20% for all metrics
+
+Add tolerance to thresholds.
+
+```ts
+buffers: {
+  duration: 20,
+  rerenders: 20,
+  fps: 20,
+  heapGrowth: 20,
+  webVitals: { lcp: 20, inp: 20, cls: 20 },
+}
+```
+
+### name
+
+**Type:** `string`
+**Default:** Auto-generated from test title
+
+Custom artifact filename.
+
+```ts
+name: 'homepage-perf'
+```
+
+## Threshold Types
+
+### ProfilerThreshold
+
+```ts
+interface ProfilerThreshold {
+  duration: number | {
+    avg?: number;
+    p50?: number;
+    p95?: number;
+    p99?: number;
+  };
+  rerenders: number;
+}
+```
+
+### FPSThreshold
+
+```ts
+type FPSThreshold = number | {
+  avg?: number;
+  p50?: number;
+  p95?: number;
+  p99?: number;
+};
+```
+
+### MemoryThreshold
+
+```ts
+interface MemoryThreshold {
+  heapGrowth?: number; // bytes
+}
+```
+
+### WebVitalsThreshold
+
+```ts
+interface WebVitalsThreshold {
+  lcp?: number;  // ms
+  inp?: number;  // ms
+  cls?: number;  // score
+}
+```
+
+## Automatic Feature Enablement
+
+Features are automatically enabled based on threshold configuration:
+
+| Feature | Enabled When | Browser |
+|---------|--------------|---------|
+| FPS Tracking | `fps` threshold configured | Chromium |
+| Memory Tracking | `memory.heapGrowth` threshold configured | Chromium |
+| Web Vitals | `webVitals` threshold configured | All |
+
+No explicit flags needed.
+
+## Environment Behavior
+
+| Environment | Thresholds | Warmup | Detection |
+|-------------|------------|--------|-----------|
+| CI | `base` + `ci` | `true` | `process.env.CI` |
+| Local | `base` only | `false` | `!process.env.CI` |
+
+## Buffer Application
+
+| Metric | Application | Example |
+|--------|-------------|---------|
+| Duration | Additive | 500ms + 20% = 600ms max |
+| Rerenders | Additive | 20 + 20% = 24 max |
+| FPS | Subtractive | 60 - 20% = 48 FPS min |
+| Heap Growth | Additive | 10MB + 20% = 12MB max |
+| Web Vitals | Additive | 2500ms + 20% = 3000ms max |
+
+## Example Configurations
+
+### Minimal
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 20 } },
+    },
+  },
+})
+```
+
+### Full Featured
+
+```ts
+test.performance({
+  warmup: true,
+  throttleRate: 4,
+  iterations: 5,
+  networkThrottling: 'fast-3g',
+  exportTrace: true,
+  thresholds: {
+    base: {
+      profiler: {
+        '*': {
+          duration: { avg: 500, p95: 700 },
+          rerenders: 20,
+        },
+        'header': { duration: 100, rerenders: 5 },
+      },
+      fps: { avg: 55, p95: 45 },
+      memory: { heapGrowth: 10 * 1024 * 1024 },
+      webVitals: { lcp: 2500, inp: 200, cls: 0.1 },
+    },
+    ci: {
+      profiler: {
+        '*': { duration: { avg: 800, p95: 1000 } },
+      },
+    },
+  },
+  buffers: {
+    duration: 25,
+    fps: 10,
+  },
+  name: 'comprehensive-test',
+})
+```
+
+## Related
+
+- [Configuring Thresholds](/docs/guides/thresholds) – Guide
+- [CPU & Network Throttling](/docs/guides/throttling) – Guide
+- [Playwright API](/docs/api/playwright) – Methods

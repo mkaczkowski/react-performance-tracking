@@ -1,0 +1,308 @@
+# SPA Navigation Examples
+
+Performance testing patterns for single-page application navigation.
+
+## Basic Route Transition
+
+Test client-side navigation between routes:
+
+```ts
+test.describe('SPA Navigation', () => {
+  test.performance({
+    thresholds: {
+      base: {
+        profiler: { '*': { duration: 300, rerenders: 20 } },
+        fps: 60,
+      },
+    },
+  })('route transition', async ({ page, performance }) => {
+    await page.goto('/');
+    await performance.init();
+
+    await performance.reset();
+    await page.click('a[href="/about"]');
+    await page.waitForURL('**/about');
+    await performance.waitUntilStable();
+  });
+});
+```
+
+## Repeated Navigation
+
+Test navigation multiple times to detect memory leaks:
+
+```ts
+test.performance({
+  iterations: 5,
+  thresholds: {
+    base: {
+      profiler: {
+        '*': {
+          duration: { avg: 250, p95: 400 },
+          rerenders: 15,
+        },
+      },
+      memory: { heapGrowth: 3 * 1024 * 1024 }, // Max 3MB growth
+    },
+  },
+})('repeated navigation', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  await performance.reset();
+  // Navigate back and forth
+  await page.click('a[href="/products"]');
+  await page.waitForURL('**/products');
+  await page.click('a[href="/"]');
+  await page.waitForURL('**/');
+  await performance.waitUntilStable();
+});
+```
+
+## Deep Link Navigation
+
+Test navigating to pages with data loading:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 25 } },
+      webVitals: { lcp: 2500 },
+    },
+  },
+})('deep link with data', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('a[href="/users/123"]');
+  await page.waitForURL('**/users/123');
+  await page.waitForSelector('[data-testid="user-profile"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Tab Navigation
+
+Test switching between tabs within a page:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 200, rerenders: 10 } },
+    },
+  },
+})('tab navigation', async ({ page, performance }) => {
+  await page.goto('/settings');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('[data-testid="tab-notifications"]');
+  await performance.waitUntilStable();
+
+  await performance.reset();
+  await page.click('[data-testid="tab-security"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Browser Back/Forward
+
+Test browser history navigation:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 200, rerenders: 15 } },
+    },
+  },
+})('browser history navigation', async ({ page, performance }) => {
+  await page.goto('/');
+  await page.click('a[href="/products"]');
+  await page.waitForURL('**/products');
+  await page.click('a[href="/about"]');
+  await page.waitForURL('**/about');
+  await performance.init();
+
+  // Test back button
+  await performance.reset();
+  await page.goBack();
+  await page.waitForURL('**/products');
+  await performance.waitUntilStable();
+
+  // Test forward button
+  await performance.reset();
+  await page.goForward();
+  await page.waitForURL('**/about');
+  await performance.waitUntilStable();
+});
+```
+
+## Modal/Dialog Navigation
+
+Test opening and closing modals:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 150, rerenders: 8 } },
+      fps: 60, // Smooth modal animations
+    },
+  },
+})('modal open/close', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  // Open modal
+  await performance.reset();
+  await page.click('[data-testid="open-modal"]');
+  await page.waitForSelector('.modal.visible');
+  await performance.waitUntilStable();
+
+  // Close modal
+  await performance.reset();
+  await page.click('[data-testid="close-modal"]');
+  await page.waitForSelector('.modal', { state: 'hidden' });
+  await performance.waitUntilStable();
+});
+```
+
+## Route with Query Parameters
+
+Test navigation with query parameter changes:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 300, rerenders: 15 } },
+    },
+  },
+})('query parameter navigation', async ({ page, performance }) => {
+  await page.goto('/search');
+  await performance.init();
+
+  await performance.reset();
+  await page.fill('[data-testid="search-input"]', 'test');
+  await page.click('[data-testid="search-submit"]');
+  await page.waitForURL('**/search?q=test');
+  await performance.waitUntilStable();
+});
+```
+
+## Lazy-Loaded Routes
+
+Test routes with code splitting:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 800, rerenders: 30 } },
+      webVitals: { lcp: 3000 },
+    },
+  },
+})('lazy-loaded route', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  await performance.reset();
+  await page.click('a[href="/admin"]'); // Lazy-loaded route
+  await page.waitForURL('**/admin');
+  await page.waitForSelector('[data-testid="admin-dashboard"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Protected Routes
+
+Test navigation to authenticated routes:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 400, rerenders: 20 } },
+    },
+  },
+})('protected route', async ({ page, performance }) => {
+  // Login first
+  await page.goto('/login');
+  await page.fill('[name="email"]', 'test@example.com');
+  await page.fill('[name="password"]', 'password');
+  await page.click('[type="submit"]');
+  await page.waitForURL('**/dashboard');
+
+  await performance.init();
+
+  // Navigate to protected route
+  await performance.reset();
+  await page.click('a[href="/settings"]');
+  await page.waitForURL('**/settings');
+  await performance.waitUntilStable();
+});
+```
+
+## Navigation with Custom Timing
+
+Track navigation phases:
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 25 } },
+    },
+  },
+})('navigation timing breakdown', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+
+  performance.mark('nav-start');
+  await page.click('a[href="/products"]');
+
+  performance.mark('route-change');
+  await page.waitForURL('**/products');
+
+  performance.mark('data-loaded');
+  await page.waitForSelector('[data-testid="product-list"]');
+
+  performance.mark('render-complete');
+  await performance.waitUntilStable();
+  performance.mark('nav-end');
+
+  // Measure phases
+  const routeChange = performance.measure('route-change-time', 'nav-start', 'route-change');
+  const dataLoad = performance.measure('data-load-time', 'route-change', 'data-loaded');
+  const render = performance.measure('render-time', 'data-loaded', 'render-complete');
+  const total = performance.measure('total-nav', 'nav-start', 'nav-end');
+
+  console.log({
+    routeChange: `${routeChange}ms`,
+    dataLoad: `${dataLoad}ms`,
+    render: `${render}ms`,
+    total: `${total}ms`,
+  });
+});
+```
+
+## Building a Test Suite
+
+Combine these patterns in a `test.describe()` block to create a comprehensive navigation test suite:
+
+```ts
+test.describe('Navigation Performance', () => {
+  // Add tests from the patterns above based on your app's navigation
+  // Consider including: route transitions, lazy-loaded routes, and memory leak detection
+});
+```
+
+## Related
+
+- [Basic Usage](/docs/examples/basic) – Simple patterns
+- [E-Commerce Examples](/docs/examples/e-commerce) – Product pages
+- [Dashboard Examples](/docs/examples/dashboard) – Data visualization

@@ -1,0 +1,232 @@
+# React API
+
+React exports for performance profiling.
+
+## Import
+
+```ts
+import {
+  PerformanceProvider,
+  usePerformance,
+  usePerformanceRequired,
+  usePerformanceStore,
+} from 'react-performance-tracking/react';
+```
+
+## PerformanceProvider
+
+Context provider that enables performance profiling throughout your React app.
+
+```tsx
+import { PerformanceProvider } from 'react-performance-tracking/react';
+
+function App() {
+  return (
+    <PerformanceProvider>
+      <YourApp />
+    </PerformanceProvider>
+  );
+}
+```
+
+### What It Does
+
+- Creates the `window.__REACT_PERFORMANCE__` store
+- Provides the profiler context to child components
+- Enables metrics collection from `<Profiler>` components
+
+### Store Structure
+
+The provider exposes this structure on `window.__REACT_PERFORMANCE__`:
+
+```ts
+interface PerformanceStore {
+  samples: PerformanceSample[];
+  components: { [id: string]: ComponentMetrics };
+  totalActualDuration: number;
+  totalBaseDuration: number;
+  lastSample?: PerformanceSample;
+  reset: () => void;
+}
+
+interface PerformanceSample {
+  id: string;
+  phase: 'mount' | 'update' | 'nested-update';
+  actualDuration: number;
+  baseDuration: number;
+  startTime: number;
+  commitTime: number;
+  interactions?: Set<unknown>;
+  lanes?: number;
+}
+
+interface ComponentMetrics {
+  totalActualDuration: number;
+  totalBaseDuration: number;
+  renderCount: number;
+  samples: PerformanceSample[];
+}
+```
+
+## usePerformance()
+
+Hook that returns the profiler callback. Returns `null` if used outside `PerformanceProvider`.
+
+```tsx
+import { Profiler } from 'react';
+import { usePerformance } from 'react-performance-tracking/react';
+
+function MyComponent() {
+  const profiler = usePerformance();
+
+  // Handle missing provider gracefully
+  if (!profiler) {
+    return <div>Profiler not available</div>;
+  }
+
+  return (
+    <Profiler id="my-component" onRender={profiler.onProfilerRender}>
+      <div>Component content</div>
+    </Profiler>
+  );
+}
+```
+
+### Returns
+
+```ts
+interface ProfilerContext {
+  onProfilerRender: ProfilerOnRenderCallback;
+} | null
+```
+
+### When to Use
+
+Use `usePerformance()` when:
+- Profiling is optional
+- You want to handle missing provider gracefully
+- The component may be used outside a profiled context
+
+## usePerformanceRequired()
+
+Same as `usePerformance()` but throws an error if used outside `PerformanceProvider`.
+
+```tsx
+import { Profiler } from 'react';
+import { usePerformanceRequired } from 'react-performance-tracking/react';
+
+function MyComponent() {
+  // Throws if PerformanceProvider is missing
+  const { onProfilerRender } = usePerformanceRequired();
+
+  return (
+    <Profiler id="my-component" onRender={onProfilerRender}>
+      <div>Component content</div>
+    </Profiler>
+  );
+}
+```
+
+### Throws
+
+```
+Error: usePerformanceRequired must be used within a PerformanceProvider
+```
+
+### When to Use
+
+Use `usePerformanceRequired()` when:
+- Profiling is mandatory
+- You want to catch configuration errors early
+- The component should always be profiled
+
+## usePerformanceStore()
+
+Internal hook for direct store access. Not typically used directly.
+
+```tsx
+import { usePerformanceStore } from 'react-performance-tracking/react';
+
+function DebugComponent() {
+  const store = usePerformanceStore();
+
+  return (
+    <pre>
+      {JSON.stringify(store, null, 2)}
+    </pre>
+  );
+}
+```
+
+### Returns
+
+The raw `PerformanceStore` object or `null`.
+
+:::warning
+This is an internal API. Prefer `usePerformance()` or `usePerformanceRequired()` for normal use.
+:::
+
+## Usage Patterns
+
+### Single Component Profiling
+
+```tsx
+function ProfiledComponent() {
+  const { onProfilerRender } = usePerformanceRequired();
+
+  return (
+    <Profiler id="component" onRender={onProfilerRender}>
+      <ExpensiveComponent />
+    </Profiler>
+  );
+}
+```
+
+### Multi-Component Profiling
+
+```tsx
+function Dashboard() {
+  const { onProfilerRender } = usePerformanceRequired();
+
+  return (
+    <div>
+      <Profiler id="header" onRender={onProfilerRender}>
+        <Header />
+      </Profiler>
+
+      <Profiler id="sidebar" onRender={onProfilerRender}>
+        <Sidebar />
+      </Profiler>
+
+      <Profiler id="content" onRender={onProfilerRender}>
+        <Content />
+      </Profiler>
+    </div>
+  );
+}
+```
+
+### Conditional Profiling
+
+```tsx
+function ConditionallyProfiled({ enableProfiling }) {
+  const profiler = usePerformance();
+
+  const content = <ExpensiveComponent />;
+
+  if (enableProfiling && profiler) {
+    return (
+      <Profiler id="conditional" onRender={profiler.onProfilerRender}>
+        {content}
+      </Profiler>
+    );
+  }
+
+  return content;
+}
+```
+
+## Related
+
+- [React Setup Guide](/docs/guides/react-setup) – Setup instructions
+- [Playwright API](/docs/api/playwright) – Test integration

@@ -1,0 +1,48 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ogRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="ogBoltGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+    <linearGradient id="ogTextGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0c0f1a"/>
+
+  <!-- Decorative gradient elements -->
+  <circle cx="150" cy="100" r="200" fill="url(#ogRingGradient)" opacity="0.08"/>
+  <circle cx="1050" cy="530" r="180" fill="url(#ogBoltGradient)" opacity="0.06"/>
+
+  <!-- Logo (scaled and positioned) -->
+  <g transform="translate(120, 215)">
+    <circle cx="100" cy="100" r="90" stroke="url(#ogRingGradient)" stroke-width="6" fill="none"/>
+    <path d="M110 50L70 104h30l-10 46 40-54H100l10-46z" fill="url(#ogBoltGradient)"/>
+  </g>
+
+  <!-- Text content -->
+  <text x="380" y="260" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="800" fill="url(#ogTextGradient)">
+    React Performance
+  </text>
+  <text x="380" y="330" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="800" fill="url(#ogTextGradient)">
+    Tracking
+  </text>
+
+  <text x="380" y="395" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="400" fill="#94a3b8">
+    Automated performance testing with Playwright
+  </text>
+
+  <text x="380" y="470" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="500" fill="#64748b">
+    Catch render regressions before they reach production
+  </text>
+
+  <!-- Bottom accent line -->
+  <rect x="380" y="510" width="120" height="4" fill="url(#ogTextGradient)" rx="2"/>
+</svg>

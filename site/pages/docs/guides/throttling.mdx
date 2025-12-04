@@ -1,0 +1,211 @@
+# CPU & Network Throttling
+
+Simulate real-world conditions to catch performance issues early.
+
+## Overview
+
+Testing on developer machines often doesn't reveal performance problems that users experience on slower devices or networks. Throttling helps you test under realistic conditions.
+
+:::warning
+Both CPU and network throttling require **Chromium** (Chrome/Edge). Other browsers will silently skip these features.
+:::
+
+## CPU Throttling
+
+Simulate slower CPUs with the `throttleRate` option:
+
+```ts
+test.performance({
+  throttleRate: 4, // 4x slower CPU
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 2000, rerenders: 20 } },
+    },
+  },
+})('mobile device simulation', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+});
+```
+
+### Throttle Rate Guidelines
+
+| Rate | Simulates | Use Case |
+|------|-----------|----------|
+| 1 | No throttling | Default, desktop testing |
+| 2 | Moderate slowdown | Budget laptops |
+| 4 | Significant slowdown | Mid-range mobile |
+| 6 | Heavy slowdown | Low-end mobile |
+
+:::tip
+When using CPU throttling, adjust your thresholds accordingly. A 4x throttle means operations take ~4x longer.
+:::
+
+## Network Throttling
+
+Simulate slow networks with the `networkThrottling` option.
+
+### Using Presets
+
+```ts
+test.performance({
+  networkThrottling: 'fast-3g',
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 2000, rerenders: 20 } },
+    },
+  },
+})('3G network test', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+});
+```
+
+### Available Presets
+
+| Preset | Latency | Download | Upload |
+|--------|---------|----------|--------|
+| `slow-3g` | 400ms | 500 Kbps | 500 Kbps |
+| `fast-3g` | 150ms | 1.6 Mbps | 750 Kbps |
+| `slow-4g` | 100ms | 3 Mbps | 1.5 Mbps |
+| `fast-4g` | 20ms | 10 Mbps | 5 Mbps |
+| `offline` | - | 0 | 0 |
+
+### Custom Conditions
+
+For fine-grained control, specify custom network conditions:
+
+```ts
+test.performance({
+  networkThrottling: {
+    latency: 100,                // ms
+    downloadThroughput: 187500,  // bytes/sec (1.5 Mbps)
+    uploadThroughput: 93750,     // bytes/sec (750 Kbps)
+    offline: false,
+  },
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 1500, rerenders: 20 } },
+    },
+  },
+})
+```
+
+:::tip
+Throughput values are in **bytes per second**. To convert from Mbps: `Mbps * 1024 * 1024 / 8`
+:::
+
+## Combining Throttling
+
+Simulate a realistic mobile experience:
+
+```ts
+test.performance({
+  throttleRate: 6,               // Slow CPU
+  networkThrottling: 'slow-3g',  // Slow network
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 5000, rerenders: 40 } },
+      fps: 30,                   // Lower FPS acceptable
+      webVitals: {
+        lcp: 4000,               // Higher LCP acceptable
+        inp: 500,
+      },
+    },
+  },
+})('low-end mobile', async ({ page, performance }) => {
+  await page.goto('/');
+  await performance.init();
+});
+```
+
+## Example Scenarios
+
+### Desktop High-Performance
+
+```ts
+test.performance({
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 100, rerenders: 5 } },
+      fps: 120,
+      webVitals: { lcp: 1000, inp: 50, cls: 0.05 },
+    },
+  },
+  buffers: { duration: 10, fps: 5 }, // Tight tolerance
+})
+```
+
+### Mid-Range Mobile
+
+```ts
+test.performance({
+  throttleRate: 4,
+  networkThrottling: 'fast-4g',
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 1000, rerenders: 25 } },
+      fps: 55,
+      webVitals: { lcp: 2500, inp: 200, cls: 0.1 },
+    },
+  },
+})
+```
+
+### Low-End Mobile
+
+```ts
+test.performance({
+  throttleRate: 6,
+  networkThrottling: 'slow-3g',
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 3000, rerenders: 40 } },
+      fps: 30,
+      webVitals: { lcp: 4000, inp: 500, cls: 0.25 },
+    },
+  },
+})
+```
+
+### Offline Testing
+
+```ts
+test.performance({
+  networkThrottling: 'offline',
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 10 } },
+    },
+  },
+})('offline mode', async ({ page, performance }) => {
+  // Pre-load the page
+  await page.goto('/');
+  await performance.init();
+
+  // Now test offline behavior
+  await performance.reset();
+  await page.click('[data-testid="retry"]');
+  await performance.waitUntilStable();
+});
+```
+
+## Accessing Presets Programmatically
+
+```ts
+import { NETWORK_PRESETS } from 'react-performance-tracking/playwright';
+
+console.log(NETWORK_PRESETS);
+// {
+//   'slow-3g': { latency: 400, downloadThroughput: 64000, uploadThroughput: 64000 },
+//   'fast-3g': { latency: 150, downloadThroughput: 200000, uploadThroughput: 94000 },
+//   ...
+// }
+// Note: throughput values are in bytes per second
+```
+
+## Next Steps
+
+- [Custom Metrics](/docs/guides/custom-metrics) – Track custom timing
+- [Examples](/docs/examples/basic) – See more test patterns
+- [Configuration Reference](/docs/api/configuration) – All options

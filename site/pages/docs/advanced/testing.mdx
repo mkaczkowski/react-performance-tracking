@@ -1,0 +1,192 @@
+# Testing Guidelines
+
+Unit testing patterns for contributors.
+
+## Test Organization
+
+Tests are organized to mirror the source structure:
+
+```
+tests/
+├── unit/
+│   ├── react/           # React layer tests
+│   ├── playwright/      # Playwright layer tests
+│   └── shared/          # Shared utility tests
+├── integration/         # E2E tests with Playwright
+├── fixtures/            # Test app and fixtures
+└── mocks/               # Mock factories
+```
+
+## Running Tests
+
+```bash
+# Unit tests
+npm test                     # Run all unit tests
+npm test -- path/to/test     # Run specific test file
+npm run test:watch           # Watch mode
+
+# E2E tests
+npm run test:e2e             # Run integration tests
+
+# Coverage
+npm run test:coverage        # Generate coverage report
+```
+
+## Mock Factories
+
+Use the mock factories in `tests/mocks/playwrightMocks.ts`:
+
+```ts
+import {
+  createMockPage,
+  createMockCDPSession,
+  createMockTestInfo,
+  createMockProfilerState,
+  createMockPerformance,
+} from '../mocks/playwrightMocks';
+```
+
+### createMockPage()
+
+Creates a mock Playwright Page:
+
+```ts
+const page = createMockPage({
+  browserName: 'chromium',
+  evaluate: vi.fn().mockResolvedValue(mockState),
+});
+```
+
+### createMockCDPSession()
+
+Creates a mock CDP session with event handling:
+
+```ts
+const cdp = createMockCDPSession();
+cdp.send.mockResolvedValue({});
+```
+
+### createFailingCDPSession()
+
+Creates a CDP session that fails (for error path testing):
+
+```ts
+const cdp = createFailingCDPSession('Connection refused');
+```
+
+### createMockProfilerState()
+
+Creates mock profiler state with samples:
+
+```ts
+const state = createMockProfilerState({
+  samples: [
+    { id: 'component', phase: 'mount', actualDuration: 10 },
+    { id: 'component', phase: 'update', actualDuration: 5 },
+  ],
+});
+```
+
+## Test Patterns
+
+### Testing CDP Features
+
+```ts
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createMockPage, createMockCDPSession } from '../mocks/playwrightMocks';
+
+describe('cpuThrottlingFeature', () => {
+  let page: ReturnType<typeof createMockPage>;
+  let cdp: ReturnType<typeof createMockCDPSession>;
+
+  beforeEach(() => {
+    cdp = createMockCDPSession();
+    page = createMockPage({
+      browserName: 'chromium',
+      context: {
+        newCDPSession: vi.fn().mockResolvedValue(cdp),
+      },
+    });
+  });
+
+  it('should apply throttle rate', async () => {
+    const handle = await cpuThrottlingFeature.start(page, { rate: 4 });
+
+    expect(cdp.send).toHaveBeenCalledWith('Emulation.setCPUThrottlingRate', {
+      rate: 4,
+    });
+    expect(handle?.isActive()).toBe(true);
+  });
+
+  it('should skip on non-chromium', async () => {
+    page = createMockPage({ browserName: 'firefox' });
+
+    const handle = await cpuThrottlingFeature.start(page, { rate: 4 });
+
+    expect(handle).toBeNull();
+  });
+});
+```
+
+### Testing Threshold Validation
+
+```ts
+describe('assertDurationThreshold', () => {
+  it('should pass when under threshold', () => {
+    expect(() => {
+      assertDurationThreshold(100, 500, 20); // 100 < 600 (500 + 20%)
+    }).not.toThrow();
+  });
+
+  it('should fail when over threshold', () => {
+    expect(() => {
+      assertDurationThreshold(700, 500, 20); // 700 > 600
+    }).toThrow(/Duration.*exceeded/);
+  });
+});
+```
+
+### Testing React Hooks
+
+```ts
+import { renderHook } from '@testing-library/react';
+import { PerformanceProvider, usePerformanceRequired } from '../../../src/react';
+
+describe('usePerformanceRequired', () => {
+  it('should return profiler context when inside provider', () => {
+    const { result } = renderHook(() => usePerformanceRequired(), {
+      wrapper: PerformanceProvider,
+    });
+
+    expect(result.current.onProfilerRender).toBeDefined();
+  });
+
+  it('should throw when outside provider', () => {
+    expect(() => {
+      renderHook(() => usePerformanceRequired());
+    }).toThrow(/must be used within/);
+  });
+});
+```
+
+## Coverage Requirements
+
+- Minimum **80%** coverage required
+- Focus on:
+  - Edge cases and error paths
+  - CDP feature graceful degradation
+  - Threshold calculations with buffers
+  - Environment-specific behavior (CI vs local)
+
+## Best Practices
+
+1. **Isolate tests** – Each test should be independent
+2. **Use factories** – Don't create mocks inline
+3. **Test error paths** – Ensure graceful degradation
+4. **Descriptive names** – `should [expected behavior] when [condition]`
+5. **Group related tests** – Use `describe` blocks logically
+
+## Related
+
+- [Architecture](/docs/advanced/architecture) – Internal design
+- [Custom Fixtures](/docs/advanced/custom-fixtures) – Extending functionality

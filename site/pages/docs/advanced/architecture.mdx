@@ -1,0 +1,197 @@
+# Architecture
+
+Internal architecture and design patterns for contributors.
+
+## System Overview
+
+React Performance Tracking is a two-layer library for automated performance testing:
+
+| Layer | Purpose | Entry Point | Runtime |
+|-------|---------|-------------|---------|
+| React | Client-side profiling | `react-performance-tracking/react` | Browser |
+| Playwright | Test orchestration | `react-performance-tracking/playwright` | Node.js |
+
+## Component Structure
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│                        Consumer Application                           │
+├──────────────────────────────────┬────────────────────────────────────┤
+│          React Layer             │          Playwright Layer          │
+│  ┌────────────────────────┐      │      ┌───────────────────────┐     │
+│  │  PerformanceProvider   │      │      │ createPerformanceTest │     │
+│  │       + Context        │      │      │  + test.performance   │     │
+│  └───────────┬────────────┘      │      └───────────┬───────────┘     │
+│              │                   │                  │                 │
+│  ┌───────────▼────────────┐      │      ┌───────────▼───────────┐     │
+│  │    usePerformance      │      │      │PerformanceTestRunner  │     │
+│  │  usePerformanceStore   │      │      │    (orchestration)    │     │
+│  └───────────┬────────────┘      │      └───────────┬───────────┘     │
+│              │                   │                  │                 │
+│  ┌───────────▼────────────┐      │      ┌───────────▼───────────┐     │
+│  │  window.__REACT_       │◄─────┼──────│ captureProfilerState  │     │
+│  │   PERFORMANCE__        │      │      │                       │     │
+│  └────────────────────────┘      │      └───────────────────────┘     │
+│                                  │                  │                 │
+│                                  │      ┌───────────▼───────────┐     │
+│                                  │      │   CDP Feature System  │     │
+│                                  │      │    (Chromium only)    │     │
+│                                  │      └───────────────────────┘     │
+└──────────────────────────────────┴────────────────────────────────────┘
+```
+
+## Plugin Architecture (CDP Features)
+
+All Chrome DevTools Protocol features use a unified plugin system:
+
+```typescript
+interface CDPFeature<TConfig = void, TMetrics = void> {
+  readonly name: string;
+  readonly requiresChromium: boolean;
+  start(page: Page, config: TConfig): Promise<CDPFeatureHandle<TMetrics> | null>;
+}
+
+interface CDPFeatureHandle<TMetrics = void> {
+  stop(): Promise<TMetrics | null>;
+  isActive(): boolean;
+}
+
+interface ResettableCDPFeatureHandle<TMetrics> extends CDPFeatureHandle<TMetrics> {
+  reset(): Promise<void>;
+}
+```
+
+### Registry Pattern
+
+Features self-register with a central registry for lifecycle management:
+
+```typescript
+// Feature registration
+featureRegistry.register(cpuThrottlingFeature);
+featureRegistry.register(networkThrottlingFeature);
+featureRegistry.register(fpsTrackingFeature);
+featureRegistry.register(memoryTrackingFeature);
+
+// Lifecycle management
+const handle = await featureRegistry.startFeature('cpu-throttling', page, config);
+await featureRegistry.stopAll(handles);
+```
+
+## React Layer Components
+
+| Component | Responsibility |
+|-----------|----------------|
+| `PerformanceProvider` | Context provider exposing profiler callback |
+| `usePerformance` | Hook returning `onProfilerRender` (nullable outside provider) |
+| `usePerformanceRequired` | Hook that throws if used outside provider |
+| `usePerformanceStore` | Internal hook managing global store lifecycle |
+
+## Playwright Layer Components
+
+| Component | Responsibility |
+|-----------|----------------|
+| `createPerformanceTest` | Factory extending Playwright test with `test.performance()` |
+| `PerformanceTestRunner` | Orchestrates test execution, features, assertions |
+| `performanceFixture` | Standalone fixture for custom test setups |
+| `captureProfilerState` | Captures React metrics from browser via `page.evaluate()` |
+
+## CDP Feature Implementations
+
+:::warning
+CDP features require Chromium. Other browsers skip gracefully.
+:::
+
+| Feature | CDP APIs Used | Metrics |
+|---------|---------------|---------|
+| `cpuThrottlingFeature` | `Emulation.setCPUThrottlingRate` | None |
+| `networkThrottlingFeature` | `Network.emulateNetworkConditions` | None |
+| `fpsTrackingFeature` | `Tracing` API | `avg`, `frameCount`, `trackingDurationMs` |
+| `memoryTrackingFeature` | `Performance.getMetrics` | `heapGrowth`, `heapGrowthPercent` |
+| `traceExportFeature` | `Tracing` API | Trace file path |
+
+## Data Flow
+
+### Initialization Phase
+
+1. `test.performance()` creates `ConfiguredTestInfo` with resolved thresholds
+2. `PerformanceTestRunner` starts CDP features (if Chromium)
+3. Test navigates to page with `PerformanceProvider`
+4. `performance.init()` waits for `window.__REACT_PERFORMANCE__` and stability
+
+### Collection Phase
+
+1. React's `<Profiler>` calls `onProfilerRender` on each render
+2. Samples are stored in `window.__REACT_PERFORMANCE__.samples`
+3. Per-component aggregations update in `components`
+
+### Assertion Phase
+
+1. `PerformanceTestRunner` captures final state via `page.evaluate()`
+2. Thresholds are validated with buffers applied
+3. Test fails with clear error if threshold exceeded
+4. Artifacts are attached to test report
+
+## Design Principles
+
+1. **Graceful Degradation** – CDP features skip on non-Chromium without errors
+2. **Zero Runtime Dependencies** – No external packages in React layer
+3. **Type Safety** – Full TypeScript with strict mode
+4. **Minimal API Surface** – Simple defaults, advanced escape hatches
+5. **Clear Error Messages** – Actionable feedback on failures
+
+## Integration Patterns
+
+### Cross-Boundary Communication
+
+React-to-Playwright communication via window global:
+
+```typescript
+// React side (runs in browser)
+window.__REACT_PERFORMANCE__ = store;
+
+// Playwright side (runs in Node.js)
+const metrics = await page.evaluate(() => window.__REACT_PERFORMANCE__);
+```
+
+### Feature Lifecycle
+
+All CDP features follow the same lifecycle pattern:
+
+```typescript
+// 1. Start (returns handle)
+const handle = await feature.start(page, config);
+
+// 2. Reset (optional, for iterations)
+await handle.reset?.();
+
+// 3. Stop (returns metrics and cleans up)
+const metrics = await handle.stop();
+```
+
+## Security Architecture
+
+| Concern | Mitigation |
+|---------|------------|
+| CDP Session Leaks | Sessions detached in `finally` blocks via `detachCDPSession()` |
+| Sensitive Data | No user data in window globals or artifacts |
+| Trace Files | Local-only, not transmitted externally |
+| Dependency Injection | No dynamic code execution or eval |
+| Error Information | Stack traces not exposed to end users |
+
+### Safe Cleanup Pattern
+
+```typescript
+try {
+  // ... feature operation
+} finally {
+  await detachCDPSession(session);
+}
+
+// Or with safeCDPSend for non-critical cleanup
+await safeCDPSend(session, 'Method', params); // Silent on failure
+```
+
+## Related
+
+- [Custom Fixtures](/docs/advanced/custom-fixtures) – Extending functionality
+- [Testing Guidelines](/docs/advanced/testing) – Unit test patterns

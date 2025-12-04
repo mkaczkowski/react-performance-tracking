@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or Discussion
+    url: https://github.com/mkaczkowski/react-performance-tracking/discussions
+    about: Ask questions or discuss ideas with the community
+  - name: Documentation
+    url: https://github.com/mkaczkowski/react-performance-tracking#readme
+    about: Read the documentation for usage guides and examples
