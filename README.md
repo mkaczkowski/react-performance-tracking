@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/react-performance-tracking.svg)](https://www.npmjs.com/package/react-performance-tracking)
 [![CI](https://github.com/mkaczkowski/react-performance-tracking/actions/workflows/ci.yml/badge.svg)](https://github.com/mkaczkowski/react-performance-tracking/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/mkaczkowski/react-performance-tracking/branch/main/graph/badge.svg)](https://codecov.io/gh/mkaczkowski/react-performance-tracking)
+[![codecov](https://codecov.io/github/mkaczkowski/react-performance-tracking/graph/badge.svg?token=WKKW8999JK)](https://codecov.io/github/mkaczkowski/react-performance-tracking)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 

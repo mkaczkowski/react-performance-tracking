@@ -23,16 +23,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/cache@v4
-        id: node-modules
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+      - uses: ./.github/actions/setup-node-deps
       - run: npm run lint
       - run: npm run format:check
 
@@ -42,16 +33,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/cache@v4
-        id: node-modules
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+      - uses: ./.github/actions/setup-node-deps
       - run: npm run typecheck
 
   # ─────────────────────────────────────────────────────────────
@@ -64,16 +46,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/cache@v4
-        id: node-modules
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+      - uses: ./.github/actions/setup-node-deps
       - run: npm run build
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -92,16 +65,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/cache@v4
-        id: node-modules
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+      - uses: ./.github/actions/setup-node-deps
       - name: Download build artifacts
         uses: actions/download-artifact@v5
         with:
@@ -125,16 +89,7 @@ jobs:
         shardTotal: [4]
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/cache@v4
-        id: node-modules
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+      - uses: ./.github/actions/setup-node-deps
       - name: Download build artifacts
         uses: actions/download-artifact@v5
         with:
@@ -173,16 +128,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: actions/cache@v4
-        id: node-modules
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
+      - uses: ./.github/actions/setup-node-deps
       - name: Download blob reports
         uses: actions/download-artifact@v5
         with:
@@ -212,17 +158,9 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup-node-deps
         with:
-          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-      - uses: actions/cache@v4
-        id: node-modules
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
       - name: Verify version matches tag
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
