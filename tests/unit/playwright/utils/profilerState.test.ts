@@ -86,14 +86,24 @@ describe('profilerState', () => {
   describe('hasMemoryMetrics', () => {
     it('should return true when memory.heapGrowth is present', () => {
       const state = createMockProfilerState({
-        memory: { heapGrowth: 1024 },
+        memory: {
+          before: { jsHeapUsedSize: 1000, jsHeapTotalSize: 2000, timestamp: 0 },
+          after: { jsHeapUsedSize: 2024, jsHeapTotalSize: 3000, timestamp: 100 },
+          heapGrowth: 1024,
+          heapGrowthPercent: 102.4,
+        },
       });
       expect(hasMemoryMetrics(state)).toBe(true);
     });
 
     it('should return true when heapGrowth is 0', () => {
       const state = createMockProfilerState({
-        memory: { heapGrowth: 0 },
+        memory: {
+          before: { jsHeapUsedSize: 1000, jsHeapTotalSize: 2000, timestamp: 0 },
+          after: { jsHeapUsedSize: 1000, jsHeapTotalSize: 2000, timestamp: 100 },
+          heapGrowth: 0,
+          heapGrowthPercent: 0,
+        },
       });
       expect(hasMemoryMetrics(state)).toBe(true);
     });
@@ -106,7 +116,12 @@ describe('profilerState', () => {
     it('should return false when heapGrowth is not a number', () => {
       const state = {
         ...createMockProfilerState(),
-        memory: { heapGrowth: undefined as unknown as number },
+        memory: {
+          before: { jsHeapUsedSize: 1000, jsHeapTotalSize: 2000, timestamp: 0 },
+          after: { jsHeapUsedSize: 1000, jsHeapTotalSize: 2000, timestamp: 100 },
+          heapGrowth: undefined as unknown as number,
+          heapGrowthPercent: 0,
+        },
       };
       expect(hasMemoryMetrics(state)).toBe(false);
     });
@@ -116,7 +131,7 @@ describe('profilerState', () => {
     it('should return true when marks are present', () => {
       const state = createMockProfilerState({
         customMetrics: {
-          marks: [{ name: 'test-mark', startTime: 100 }],
+          marks: [{ name: 'test-mark', timestamp: 100 }],
           measures: [],
         },
       });
@@ -127,7 +142,7 @@ describe('profilerState', () => {
       const state = createMockProfilerState({
         customMetrics: {
           marks: [],
-          measures: [{ name: 'test-measure', duration: 50, startTime: 100 }],
+          measures: [{ name: 'test-measure', startMark: 'start', endMark: 'end', duration: 50 }],
         },
       });
       expect(hasCustomMetrics(state)).toBe(true);
@@ -136,8 +151,8 @@ describe('profilerState', () => {
     it('should return true when both marks and measures are present', () => {
       const state = createMockProfilerState({
         customMetrics: {
-          marks: [{ name: 'test-mark', startTime: 100 }],
-          measures: [{ name: 'test-measure', duration: 50, startTime: 100 }],
+          marks: [{ name: 'test-mark', timestamp: 100 }],
+          measures: [{ name: 'test-measure', startMark: 'start', endMark: 'end', duration: 50 }],
         },
       });
       expect(hasCustomMetrics(state)).toBe(true);
@@ -205,14 +220,14 @@ describe('profilerState', () => {
           App: {
             renderCount: 2,
             totalActualDuration: 100,
-            avgActualDuration: 50,
-            totalPhases: { mount: 1, update: 1 },
+            totalBaseDuration: 150,
+            phaseBreakdown: { mount: 1, update: 1 },
           },
           Header: {
             renderCount: 1,
             totalActualDuration: 50,
-            avgActualDuration: 50,
-            totalPhases: { mount: 1, update: 0 },
+            totalBaseDuration: 75,
+            phaseBreakdown: { mount: 1, update: 0 },
           },
         },
       });
@@ -225,8 +240,8 @@ describe('profilerState', () => {
           App: {
             renderCount: 2,
             totalActualDuration: 100,
-            avgActualDuration: 50,
-            totalPhases: { mount: 1, update: 1 },
+            totalBaseDuration: 150,
+            phaseBreakdown: { mount: 1, update: 1 },
           },
         },
       });

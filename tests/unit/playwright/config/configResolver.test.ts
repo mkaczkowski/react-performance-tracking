@@ -341,8 +341,8 @@ describe('resolveDurationThresholds', () => {
     });
   });
 
-  it('should handle undefined base with CI override', () => {
-    const result = resolveDurationThresholds(undefined, { avg: 600 }, true);
+  it('should handle zero base with CI override', () => {
+    const result = resolveDurationThresholds(0, { avg: 600 }, true);
     expect(result).toEqual({
       avg: 600,
       p50: 0,

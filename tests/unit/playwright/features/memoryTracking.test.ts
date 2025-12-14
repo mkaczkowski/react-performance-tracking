@@ -135,7 +135,7 @@ describe('memoryTracking', () => {
               ],
             };
           }
-          return undefined;
+          return {};
         });
         const mockPage = createMockPage(null, mockCDPSession);
 
@@ -153,7 +153,7 @@ describe('memoryTracking', () => {
           if (method === 'Performance.getMetrics') {
             return { metrics: [] };
           }
-          return undefined;
+          return {};
         });
         const mockPage = createMockPage(null, mockCDPSession);
 
@@ -197,7 +197,7 @@ describe('memoryTracking', () => {
               ],
             };
           }
-          return undefined;
+          return {};
         });
         const mockPage = createMockPage(null, mockCDPSession);
 
