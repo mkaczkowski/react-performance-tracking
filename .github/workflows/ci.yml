@@ -46,13 +46,11 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
-      - run: npm test
+      - run: npm test:ci
       - name: Upload coverage to Codecov
-        if: matrix.node-version == 20
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
-          files: ./coverage/coverage-final.json
-          flags: unit
+          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
   test-e2e:
