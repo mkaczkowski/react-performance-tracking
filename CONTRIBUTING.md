@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - npm
 
 ### Development Setup
@@ -149,7 +149,7 @@ Describe:
 
 ## Architecture Overview
 
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system design.
+See [architecture.mdx](site/pages/docs/advanced/architecture.mdx) for detailed system design.
 
 ### Key Directories
 
