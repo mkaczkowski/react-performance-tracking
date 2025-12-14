@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   calculateMemoryGrowth,
+  captureMemorySnapshot,
   type CDPMetric,
   extractMemoryMetrics,
   type MemorySnapshot,
+  memoryTrackingFeature,
 } from '@/playwright/features/memoryTracking';
+import { createMockCDPSession, createMockPage } from '../../../mocks/playwrightMocks';
 
 describe('memoryTracking', () => {
   describe('extractMemoryMetrics', () => {
@@ -98,6 +101,112 @@ describe('memoryTracking', () => {
 
       expect(result.before).toBe(before);
       expect(result.after).toBe(after);
+    });
+  });
+
+  describe('captureMemorySnapshot', () => {
+    it('should call Performance.getMetrics and extract metrics', async () => {
+      const mockCDPSession = createMockCDPSession();
+      vi.mocked(mockCDPSession.send).mockResolvedValueOnce({
+        metrics: [
+          { name: 'JSHeapUsedSize', value: 10_000_000 },
+          { name: 'JSHeapTotalSize', value: 20_000_000 },
+        ],
+      });
+
+      const result = await captureMemorySnapshot(mockCDPSession);
+
+      expect(mockCDPSession.send).toHaveBeenCalledWith('Performance.getMetrics');
+      expect(result.jsHeapUsedSize).toBe(10_000_000);
+      expect(result.jsHeapTotalSize).toBe(20_000_000);
+    });
+  });
+
+  describe('memoryTrackingFeature', () => {
+    describe('start', () => {
+      it('should return handle when CDP session is available', async () => {
+        const mockCDPSession = createMockCDPSession();
+        vi.mocked(mockCDPSession.send).mockImplementation(async (method: string) => {
+          if (method === 'Performance.getMetrics') {
+            return {
+              metrics: [
+                { name: 'JSHeapUsedSize', value: 10_000_000 },
+                { name: 'JSHeapTotalSize', value: 20_000_000 },
+              ],
+            };
+          }
+          return undefined;
+        });
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await memoryTrackingFeature.start(mockPage);
+
+        expect(handle).not.toBeNull();
+        expect(handle?.stop).toBeDefined();
+        expect(handle?.reset).toBeDefined();
+        expect(handle?.getInitialSnapshot).toBeDefined();
+      });
+
+      it('should call Performance.enable on start', async () => {
+        const mockCDPSession = createMockCDPSession();
+        vi.mocked(mockCDPSession.send).mockImplementation(async (method: string) => {
+          if (method === 'Performance.getMetrics') {
+            return { metrics: [] };
+          }
+          return undefined;
+        });
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        await memoryTrackingFeature.start(mockPage);
+
+        expect(mockCDPSession.send).toHaveBeenCalledWith('Performance.enable');
+      });
+
+      it('should return null when CDP is not available', async () => {
+        const mockCDPSession = createMockCDPSession();
+        // isCdpUnsupportedError checks for specific patterns in the message
+        const cdpError = new Error('CDP session not available');
+        vi.mocked(mockCDPSession.send).mockRejectedValue(cdpError);
+
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await memoryTrackingFeature.start(mockPage);
+
+        expect(handle).toBeNull();
+      });
+
+      it('should return null on unexpected error', async () => {
+        const mockCDPSession = createMockCDPSession();
+        vi.mocked(mockCDPSession.send).mockRejectedValue(new Error('Unexpected error'));
+
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await memoryTrackingFeature.start(mockPage);
+
+        expect(handle).toBeNull();
+      });
+
+      it('getInitialSnapshot should return the initial memory snapshot', async () => {
+        const mockCDPSession = createMockCDPSession();
+        vi.mocked(mockCDPSession.send).mockImplementation(async (method: string) => {
+          if (method === 'Performance.getMetrics') {
+            return {
+              metrics: [
+                { name: 'JSHeapUsedSize', value: 15_000_000 },
+                { name: 'JSHeapTotalSize', value: 30_000_000 },
+              ],
+            };
+          }
+          return undefined;
+        });
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await memoryTrackingFeature.start(mockPage);
+        const initialSnapshot = handle?.getInitialSnapshot();
+
+        expect(initialSnapshot?.jsHeapUsedSize).toBe(15_000_000);
+        expect(initialSnapshot?.jsHeapTotalSize).toBe(30_000_000);
+      });
     });
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   formatNetworkConditions,
@@ -6,9 +6,11 @@ import {
   NETWORK_PRESETS,
   type NetworkConditions,
   type NetworkPreset,
+  networkThrottlingFeature,
   type ResolvedNetworkConditions,
   resolveNetworkConditions,
 } from '@/playwright/features/networkThrottling';
+import { createMockCDPSession, createMockPage } from '../../../mocks/playwrightMocks';
 
 describe('networkThrottling', () => {
   const ALL_PRESETS: NetworkPreset[] = ['slow-3g', 'fast-3g', 'slow-4g', 'fast-4g', 'offline'];
@@ -139,6 +141,138 @@ describe('networkThrottling', () => {
         NETWORK_PRESETS[slower].downloadThroughput,
       );
       expect(NETWORK_PRESETS[faster].latency).toBeLessThan(NETWORK_PRESETS[slower].latency);
+    });
+  });
+
+  describe('formatNetworkConditions throughput formatting', () => {
+    it('should format unlimited throughput (-1)', () => {
+      const conditions: ResolvedNetworkConditions = {
+        latency: 0,
+        downloadThroughput: -1,
+        uploadThroughput: -1,
+        offline: false,
+        source: { latency: 0, downloadThroughput: -1, uploadThroughput: -1 },
+      };
+
+      const result = formatNetworkConditions(conditions);
+
+      expect(result).toContain('down=unlimited');
+      expect(result).toContain('up=unlimited');
+    });
+
+    it('should format low throughput in Kbps', () => {
+      // 64000 bytes/s = 512 Kbps
+      const conditions: ResolvedNetworkConditions = {
+        latency: 100,
+        downloadThroughput: 64000,
+        uploadThroughput: 32000,
+        offline: false,
+        source: { latency: 100, downloadThroughput: 64000, uploadThroughput: 32000 },
+      };
+
+      const result = formatNetworkConditions(conditions);
+
+      expect(result).toContain('down=500 Kbps');
+      expect(result).toContain('up=250 Kbps');
+    });
+
+    it('should format high throughput in Mbps', () => {
+      // 1310720 bytes/s = 10 Mbps
+      const conditions: ResolvedNetworkConditions = {
+        latency: 10,
+        downloadThroughput: 1310720,
+        uploadThroughput: 655360,
+        offline: false,
+        source: { latency: 10, downloadThroughput: 1310720, uploadThroughput: 655360 },
+      };
+
+      const result = formatNetworkConditions(conditions);
+
+      expect(result).toContain('Mbps');
+    });
+  });
+
+  describe('networkThrottlingFeature', () => {
+    describe('start', () => {
+      it('should return handle when CDP session is available', async () => {
+        const mockCDPSession = createMockCDPSession();
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await networkThrottlingFeature.start(mockPage, 'slow-3g');
+
+        expect(handle).not.toBeNull();
+        expect(handle?.stop).toBeDefined();
+        expect(handle?.getConditions).toBeDefined();
+      });
+
+      it('should call Network.emulateNetworkConditions with preset values', async () => {
+        const mockCDPSession = createMockCDPSession();
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        await networkThrottlingFeature.start(mockPage, 'slow-3g');
+
+        expect(mockCDPSession.send).toHaveBeenCalledWith('Network.emulateNetworkConditions', {
+          offline: false,
+          latency: NETWORK_PRESETS['slow-3g'].latency,
+          downloadThroughput: NETWORK_PRESETS['slow-3g'].downloadThroughput,
+          uploadThroughput: NETWORK_PRESETS['slow-3g'].uploadThroughput,
+        });
+      });
+
+      it('should call Network.emulateNetworkConditions with custom values', async () => {
+        const mockCDPSession = createMockCDPSession();
+        const mockPage = createMockPage(null, mockCDPSession);
+        const customConfig: NetworkConditions = {
+          latency: 200,
+          downloadThroughput: 50000,
+          uploadThroughput: 25000,
+        };
+
+        await networkThrottlingFeature.start(mockPage, customConfig);
+
+        expect(mockCDPSession.send).toHaveBeenCalledWith('Network.emulateNetworkConditions', {
+          offline: false,
+          latency: 200,
+          downloadThroughput: 50000,
+          uploadThroughput: 25000,
+        });
+      });
+
+      it('should return null when CDP is not available', async () => {
+        const mockCDPSession = createMockCDPSession();
+        // isCdpUnsupportedError checks for specific patterns in the message
+        const cdpError = new Error('CDP session not available');
+        vi.mocked(mockCDPSession.send).mockRejectedValue(cdpError);
+
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await networkThrottlingFeature.start(mockPage, 'slow-3g');
+
+        expect(handle).toBeNull();
+      });
+
+      it('should rethrow unexpected errors', async () => {
+        const mockCDPSession = createMockCDPSession();
+        vi.mocked(mockCDPSession.send).mockRejectedValue(new Error('Unexpected error'));
+
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        await expect(networkThrottlingFeature.start(mockPage, 'slow-3g')).rejects.toThrow(
+          'Unexpected error',
+        );
+      });
+
+      it('getConditions should return resolved network conditions', async () => {
+        const mockCDPSession = createMockCDPSession();
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await networkThrottlingFeature.start(mockPage, 'fast-4g');
+        const conditions = handle?.getConditions();
+
+        expect(conditions?.latency).toBe(NETWORK_PRESETS['fast-4g'].latency);
+        expect(conditions?.downloadThroughput).toBe(NETWORK_PRESETS['fast-4g'].downloadThroughput);
+        expect(conditions?.source).toBe('fast-4g');
+      });
     });
   });
 });

@@ -8,6 +8,7 @@ import {
 } from '@lib/playwright/assertions/validators';
 import {
   captureWebVitals,
+  ensureWebVitalsInitialized,
   hasWebVitalsData,
   injectWebVitalsObserver,
   isWebVitalsInitialized,
@@ -39,6 +40,28 @@ describe('webVitalsTracking', () => {
       // Actual PerformanceObserver setup is tested via E2E tests
       const injectedFn = vi.mocked(mockPage.addInitScript).mock.calls[0][0];
       expect(typeof injectedFn).toBe('function');
+    });
+  });
+
+  describe('ensureWebVitalsInitialized', () => {
+    it('should not inject when already initialized', async () => {
+      // First call returns true (initialized)
+      vi.mocked(mockPage.evaluate).mockResolvedValueOnce(true);
+
+      await ensureWebVitalsInitialized(mockPage);
+
+      // Only one evaluate call to check initialization
+      expect(mockPage.evaluate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should inject when not initialized', async () => {
+      // First call returns false (not initialized), then undefined (injection call)
+      vi.mocked(mockPage.evaluate).mockResolvedValueOnce(false).mockResolvedValueOnce(undefined);
+
+      await ensureWebVitalsInitialized(mockPage);
+
+      // Two evaluate calls: check + inject
+      expect(mockPage.evaluate).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -1,12 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   calculateMetricsFromEvents,
   extractFrameEvents,
+  fpsTrackingFeature,
   parseTraceEvent,
   type RawTraceEvent,
   type TraceEvent,
 } from '@/playwright/features/fpsTracking';
+import {
+  createMockCDPSession,
+  createMockPage,
+  createMockTraceEvents,
+} from '../../../mocks/playwrightMocks';
 
 describe('fpsTracking', () => {
   describe('parseTraceEvent', () => {
@@ -236,6 +242,60 @@ describe('fpsTracking', () => {
       expect(result.avg).toBe(10);
       // Check it's properly rounded (no floating point issues)
       expect(Number.isInteger(result.avg * 100)).toBe(true);
+    });
+  });
+
+  describe('fpsTrackingFeature', () => {
+    describe('start', () => {
+      it('should return handle when CDP session is available', async () => {
+        const traceEvents = createMockTraceEvents(60);
+        const mockCDPSession = createMockCDPSession(traceEvents);
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await fpsTrackingFeature.start(mockPage);
+
+        expect(handle).not.toBeNull();
+        expect(handle?.stop).toBeDefined();
+        expect(handle?.reset).toBeDefined();
+      });
+
+      it('should call Tracing.start on initialization', async () => {
+        const mockCDPSession = createMockCDPSession([]);
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        await fpsTrackingFeature.start(mockPage);
+
+        expect(mockCDPSession.send).toHaveBeenCalledWith(
+          'Tracing.start',
+          expect.objectContaining({
+            categories: expect.stringContaining('devtools.timeline'),
+          }),
+        );
+      });
+
+      it('should return null when CDP is not available', async () => {
+        const mockCDPSession = createMockCDPSession();
+        // isCdpUnsupportedError checks for specific patterns in the message
+        const cdpError = new Error('CDP session not available');
+        vi.mocked(mockCDPSession.send).mockRejectedValue(cdpError);
+
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await fpsTrackingFeature.start(mockPage);
+
+        expect(handle).toBeNull();
+      });
+
+      it('should return null on unexpected error', async () => {
+        const mockCDPSession = createMockCDPSession();
+        vi.mocked(mockCDPSession.send).mockRejectedValue(new Error('Unexpected error'));
+
+        const mockPage = createMockPage(null, mockCDPSession);
+
+        const handle = await fpsTrackingFeature.start(mockPage);
+
+        expect(handle).toBeNull();
+      });
     });
   });
 });

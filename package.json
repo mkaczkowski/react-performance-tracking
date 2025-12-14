@@ -1,6 +1,6 @@
 {
   "name": "react-performance-tracking",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "React performance profiling with Playwright test integration",
   "type": "module",
   "exports": {
@@ -35,7 +35,6 @@
     "docs:preview": "vocs preview",
     "docs:serve": "npm run docs:build && npx serve site/dist -p 3000",
     "test": "vitest run",
-    "test:ci": "vitest run --coverage",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
