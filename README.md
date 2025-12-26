@@ -32,6 +32,7 @@ Automate React render performance checks in Playwright. Capture React Profiler m
 - 🎞️ **FPS tracking (Chromium/CDP)** – Measure avg FPS via tracing; asserts and logs when enabled
 - 🧠 **Memory tracking (Chromium/CDP)** – Track heap growth to detect memory leaks
 - 📈 **Web Vitals tracking** – Capture LCP, INP, CLS via PerformanceObserver (all browsers)
+- 🔦 **Lighthouse audits (Chromium/CDP)** – Run Lighthouse for performance, accessibility, SEO scores
 - 🐢 **CPU throttling (Chromium/CDP)** – Simulate slower devices when supported
 - 🌐 **Network throttling (Chromium/CDP)** – Simulate slow networks (3G/4G presets or custom)
 - ⏱️ **Custom metrics** – Track custom performance marks and measures for fine-grained timing
@@ -54,7 +55,8 @@ npm install react-performance-tracking
 ```json
 {
   "react": "^18.0.0 || ^19.0.0",
-  "@playwright/test": "^1.40.0"
+  "@playwright/test": "^1.40.0",
+  "lighthouse": ">=11.0.0"
 }
 ```
 
@@ -62,6 +64,7 @@ Install only what you use:
 
 - `react` for the provider/hooks
 - `@playwright/test` for the Playwright integration
+- `lighthouse` for Lighthouse audits (install with `npm install -D lighthouse`)
 
 ## Quick Start
 

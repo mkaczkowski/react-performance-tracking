@@ -31,7 +31,8 @@ The package has **optional** peer dependencies. Install only what you need:
 ```json
 {
   "react": "^18.0.0 || ^19.0.0",
-  "@playwright/test": "^1.40.0"
+  "@playwright/test": "^1.40.0",
+  "lighthouse": ">=11.0.0"
 }
 ```
 
@@ -39,9 +40,10 @@ The package has **optional** peer dependencies. Install only what you need:
 |------------|-----------------|
 | `react` | Using the React provider/hooks in your app |
 | `@playwright/test` | Using the Playwright test integration |
+| `lighthouse` | Using Lighthouse audits (`npm install -D lighthouse`) |
 
 :::info
-Both peer dependencies are optional. If you only need the React layer, install React. If you only need the Playwright layer for testing, install Playwright.
+All peer dependencies are optional. Install only what you use. Lighthouse is only needed if you configure `lighthouse` thresholds.
 :::
 
 ## Package Exports

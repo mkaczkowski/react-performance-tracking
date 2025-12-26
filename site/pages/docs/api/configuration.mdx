@@ -105,12 +105,14 @@ thresholds: {
     fps?: number | FPSThreshold,
     memory?: { heapGrowth?: number },
     webVitals?: { lcp?: number, inp?: number, cls?: number },
+    lighthouse?: { performance?: number, accessibility?: number, bestPractices?: number, seo?: number, pwa?: number },
   },
   ci?: {
     profiler?: { ... },
     fps?: number | FPSThreshold,
     memory?: { heapGrowth?: number },
     webVitals?: { lcp?: number, inp?: number, cls?: number },
+    lighthouse?: { ... },
   },
 }
 ```
@@ -129,6 +131,7 @@ buffers: {
   fps: 20,
   heapGrowth: 20,
   webVitals: { lcp: 20, inp: 20, cls: 20 },
+  lighthouse: 5,
 }
 ```
 
@@ -188,6 +191,18 @@ interface WebVitalsThreshold {
 }
 ```
 
+### LighthouseThreshold
+
+```ts
+interface LighthouseThreshold {
+  performance?: number;    // 0-100 score
+  accessibility?: number;  // 0-100 score
+  bestPractices?: number;  // 0-100 score
+  seo?: number;            // 0-100 score
+  pwa?: number;            // 0-100 score
+}
+```
+
 ## Automatic Feature Enablement
 
 Features are automatically enabled based on threshold configuration:
@@ -197,8 +212,9 @@ Features are automatically enabled based on threshold configuration:
 | FPS Tracking | `fps` threshold configured | Chromium |
 | Memory Tracking | `memory.heapGrowth` threshold configured | Chromium |
 | Web Vitals | `webVitals` threshold configured | All |
+| Lighthouse | `lighthouse` threshold configured | Chromium |
 
-No explicit flags needed.
+No explicit flags needed. Lighthouse requires the optional `lighthouse` peer dependency.
 
 ## Environment Behavior
 
@@ -216,6 +232,7 @@ No explicit flags needed.
 | FPS | Subtractive | 60 - 20% = 48 FPS min |
 | Heap Growth | Additive | 10MB + 20% = 12MB max |
 | Web Vitals | Additive | 2500ms + 20% = 3000ms max |
+| Lighthouse | Subtractive | 90 - 5% = 85.5 min score |
 
 ## Example Configurations
 
@@ -252,11 +269,13 @@ test.performance({
       fps: { avg: 55, p95: 45 },
       memory: { heapGrowth: 10 * 1024 * 1024 },
       webVitals: { lcp: 2500, inp: 200, cls: 0.1 },
+      lighthouse: { performance: 90, accessibility: 100 },
     },
     ci: {
       profiler: {
         '*': { duration: { avg: 800, p95: 1000 } },
       },
+      lighthouse: { performance: 80 }, // More lenient in CI
     },
   },
   buffers: {
