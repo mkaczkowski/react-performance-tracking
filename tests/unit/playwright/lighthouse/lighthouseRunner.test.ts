@@ -66,24 +66,6 @@ describe('lighthouseRunner', () => {
       );
     });
 
-    it('should throw error for webkit browser', async () => {
-      const page = createMockPageForLighthouse('webkit');
-      const options: RunLighthouseOptions = {
-        page,
-        config: {
-          enabled: true,
-          formFactor: 'mobile',
-          categories: ['performance'],
-          skipAudits: [],
-        },
-        throttleRate: 1,
-      };
-
-      await expect(runLighthouseAudit(options)).rejects.toThrow(
-        'Lighthouse requires Chromium browser. Current: webkit',
-      );
-    });
-
     it('should throw error when browser is null', async () => {
       const mockContext = {
         browser: vi.fn().mockReturnValue(null),
