@@ -4,6 +4,7 @@ import {
   createDurationMetricRow,
   createFPSMetricRow,
   createHeapGrowthMetricRow,
+  createLighthouseMetricRows,
   createSamplesMetricRow,
   createWebVitalsMetricRows,
   logBreakdown,
@@ -443,6 +444,112 @@ describe('logging', () => {
 
       expect(rows).toHaveLength(1);
       expect(rows[0].name).toBe('INP');
+    });
+  });
+
+  describe('createLighthouseMetricRows', () => {
+    it('should create metric rows for lighthouse scores with thresholds', () => {
+      const rows = createLighthouseMetricRows(
+        {
+          performance: 95,
+          accessibility: 100,
+          bestPractices: 90,
+          seo: 85,
+          pwa: null,
+          auditDurationMs: 5000,
+          url: 'http://localhost:3000',
+        },
+        { performance: 90, accessibility: 100, bestPractices: 85, seo: 80, pwa: 0 },
+        5,
+      );
+
+      expect(rows).toHaveLength(4); // pwa has 0 threshold so skipped
+      expect(rows[0].name).toBe('LH Performance');
+      expect(rows[0].actual).toBe('95');
+      expect(rows[0].passed).toBe(true);
+      expect(rows[1].name).toBe('LH Accessibility');
+      expect(rows[1].passed).toBe(true);
+      expect(rows[2].name).toBe('LH Best Practices');
+      expect(rows[2].passed).toBe(true);
+      expect(rows[3].name).toBe('LH SEO');
+      expect(rows[3].passed).toBe(true);
+    });
+
+    it('should skip lighthouse scores with zero thresholds', () => {
+      const rows = createLighthouseMetricRows(
+        {
+          performance: 95,
+          accessibility: 100,
+          bestPractices: 90,
+          seo: 85,
+          pwa: 80,
+          auditDurationMs: 5000,
+          url: 'http://localhost:3000',
+        },
+        { performance: 90, accessibility: 0, bestPractices: 0, seo: 0, pwa: 0 },
+        5,
+      );
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].name).toBe('LH Performance');
+    });
+
+    it('should skip null lighthouse scores', () => {
+      const rows = createLighthouseMetricRows(
+        {
+          performance: null,
+          accessibility: 100,
+          bestPractices: null,
+          seo: null,
+          pwa: null,
+          auditDurationMs: 5000,
+          url: 'http://localhost:3000',
+        },
+        { performance: 90, accessibility: 100, bestPractices: 85, seo: 80, pwa: 70 },
+        5,
+      );
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].name).toBe('LH Accessibility');
+    });
+
+    it('should apply subtractive buffer to thresholds', () => {
+      const rows = createLighthouseMetricRows(
+        {
+          performance: 86, // Below 90 but above 90 - 5% = 85.5
+          accessibility: 100,
+          bestPractices: null,
+          seo: null,
+          pwa: null,
+          auditDurationMs: 5000,
+          url: 'http://localhost:3000',
+        },
+        { performance: 90, accessibility: 100, bestPractices: 0, seo: 0, pwa: 0 },
+        5,
+      );
+
+      expect(rows[0].name).toBe('LH Performance');
+      expect(rows[0].threshold).toBe('≥ 86'); // 90 * (1 - 0.05) = 85.5, rounded to 86
+      expect(rows[0].passed).toBe(true);
+    });
+
+    it('should mark score as failed when below effective threshold', () => {
+      const rows = createLighthouseMetricRows(
+        {
+          performance: 80, // Below 90 - 5% = 85.5
+          accessibility: 100,
+          bestPractices: null,
+          seo: null,
+          pwa: null,
+          auditDurationMs: 5000,
+          url: 'http://localhost:3000',
+        },
+        { performance: 90, accessibility: 100, bestPractices: 0, seo: 0, pwa: 0 },
+        5,
+      );
+
+      expect(rows[0].name).toBe('LH Performance');
+      expect(rows[0].passed).toBe(false);
     });
   });
 
