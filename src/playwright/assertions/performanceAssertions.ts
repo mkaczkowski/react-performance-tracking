@@ -6,10 +6,12 @@ import type { CapturedComponentMetrics, CapturedProfilerState } from '../profile
 import type {
   BufferConfig,
   ConfiguredTestInfo,
+  LighthouseMetrics,
   Percentage,
   ResolvedComponentThresholds,
   ResolvedDurationThresholds,
   ResolvedFPSThresholds,
+  ResolvedLighthouseThresholds,
   ResolvedThresholdValues,
   ThrottleRate,
 } from '../types';
@@ -22,6 +24,7 @@ import {
   createFPSMetricRow,
   createFPSPercentileRows,
   createHeapGrowthMetricRow,
+  createLighthouseMetricRows,
   createSamplesMetricRow,
   createWebVitalsMetricRows,
   hasFPSPercentileThresholds,
@@ -49,10 +52,11 @@ import {
 } from './validators';
 
 /**
- * Metrics with optional iteration data.
+ * Metrics with optional iteration and Lighthouse data.
  */
 type MetricsWithIterations = CapturedProfilerState & {
   iterationMetrics?: IterationMetrics;
+  lighthouse?: LighthouseMetrics;
 };
 
 /**
@@ -65,6 +69,7 @@ type GlobalMetricsConfig = {
   trackFps: boolean;
   trackMemory: boolean;
   trackWebVitals: boolean;
+  trackLighthouse: boolean;
 };
 
 /**
@@ -114,6 +119,7 @@ const buildGlobalMetricRows = ({
   trackFps,
   trackMemory,
   trackWebVitals,
+  trackLighthouse,
 }: GlobalMetricsConfig): MetricRow[] => {
   const rows: MetricRow[] = [];
 
@@ -154,6 +160,16 @@ const buildGlobalMetricRows = ({
     rows.push(...webVitalsRows);
   }
 
+  // Lighthouse metrics
+  if (trackLighthouse && metrics.lighthouse) {
+    const lighthouseRows = createLighthouseMetricRows(
+      metrics.lighthouse,
+      thresholds.lighthouse,
+      buffers.lighthouse,
+    );
+    rows.push(...lighthouseRows);
+  }
+
   return rows;
 };
 
@@ -168,6 +184,7 @@ type AssertionConfig = {
   trackFps: boolean;
   trackMemory: boolean;
   trackWebVitals: boolean;
+  trackLighthouse: boolean;
 };
 
 /**
@@ -273,22 +290,28 @@ const runAllAssertions = ({
   trackFps,
   trackMemory,
   trackWebVitals,
+  trackLighthouse,
 }: AssertionConfig): void => {
-  // Basic activity assertion
-  assertMinimumActivity(metrics.sampleCount);
+  // Skip profiler assertions if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+  const hasProfilerThresholds = Object.keys(thresholds.profiler).length > 0;
 
-  // Per-component assertions
-  const componentEntries = Object.entries(metrics.components);
-  for (const [componentId, componentMetrics] of componentEntries) {
-    const componentThresholds = getComponentThreshold(componentId, thresholds);
-    runComponentAssertions(
-      componentId,
-      componentMetrics,
-      componentThresholds,
-      buffers,
-      throttleRate,
-      metrics.iterationMetrics,
-    );
+  if (hasProfilerThresholds) {
+    // Basic activity assertion
+    assertMinimumActivity(metrics.sampleCount);
+
+    // Per-component assertions
+    const componentEntries = Object.entries(metrics.components);
+    for (const [componentId, componentMetrics] of componentEntries) {
+      const componentThresholds = getComponentThreshold(componentId, thresholds);
+      runComponentAssertions(
+        componentId,
+        componentMetrics,
+        componentThresholds,
+        buffers,
+        throttleRate,
+        metrics.iterationMetrics,
+      );
+    }
   }
 
   // FPS assertion (global)
@@ -319,6 +342,11 @@ const runAllAssertions = ({
   if (trackWebVitals && metrics.webVitals) {
     runWebVitalsAssertions(metrics.webVitals, thresholds.webVitals, buffers.webVitals);
   }
+
+  // Lighthouse assertions (global)
+  if (trackLighthouse && metrics.lighthouse) {
+    runLighthouseAssertions(metrics.lighthouse, thresholds.lighthouse, buffers.lighthouse);
+  }
 };
 
 /**
@@ -341,6 +369,39 @@ const runWebVitalsAssertions = (
 
   if (cls !== null && thresholds.cls > 0) {
     assertCLSThreshold({ actual: cls, threshold: thresholds.cls, bufferPercent: buffers.cls });
+  }
+};
+
+/**
+ * Runs Lighthouse threshold assertions.
+ * Uses soft assertions so all checks run even if some fail.
+ */
+const runLighthouseAssertions = (
+  lighthouse: LighthouseMetrics,
+  thresholds: ResolvedLighthouseThresholds,
+  bufferPercent: Percentage,
+): void => {
+  const categories: Array<{
+    key: keyof ResolvedLighthouseThresholds;
+    name: string;
+    actual: number | null;
+  }> = [
+    { key: 'performance', name: 'LH Performance', actual: lighthouse.performance },
+    { key: 'accessibility', name: 'LH Accessibility', actual: lighthouse.accessibility },
+    { key: 'bestPractices', name: 'LH Best Practices', actual: lighthouse.bestPractices },
+    { key: 'seo', name: 'LH SEO', actual: lighthouse.seo },
+    { key: 'pwa', name: 'LH PWA', actual: lighthouse.pwa },
+  ];
+
+  for (const { key, name, actual } of categories) {
+    const threshold = thresholds[key];
+    if (threshold > 0 && actual !== null) {
+      // Calculate effective threshold (subtractive buffer since higher is better)
+      const effective = threshold * (1 - bufferPercent / 100);
+      expect
+        .soft(actual, `${name}: expected ≥ ${effective.toFixed(0)}, got ${actual}`)
+        .toBeGreaterThanOrEqual(effective);
+    }
   }
 };
 
@@ -381,6 +442,7 @@ export const assertPerformanceThresholds = ({
     trackWebVitals,
     iterations,
     networkThrottling,
+    lighthouse,
   },
 }: {
   metrics: MetricsWithIterations | null;
@@ -390,6 +452,8 @@ export const assertPerformanceThresholds = ({
   if (!metrics) {
     return;
   }
+
+  const trackLighthouse = lighthouse.enabled;
 
   // Log test header
   logTestHeader({ testName: name, throttleRate, warmup, iterations, networkThrottling });
@@ -404,14 +468,30 @@ export const assertPerformanceThresholds = ({
     trackFps: trackFps === true,
     trackMemory: trackMemory === true,
     trackWebVitals: trackWebVitals === true,
+    trackLighthouse,
   });
 
   // Build and log metrics based on component count
+  // Skip profiler-specific metrics if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+  const hasProfilerThresholds = Object.keys(thresholds.profiler).length > 0;
   const componentCount = Object.keys(metrics.components).length;
-  const allMetricRows =
-    componentCount > 1
-      ? logMultiComponentMetrics(metrics, thresholds, buffers, globalMetricRows)
-      : logSingleComponentMetrics(metrics, thresholds, buffers, globalMetricRows, componentCount);
+
+  let allMetricRows: MetricRow[];
+  if (!hasProfilerThresholds) {
+    // Lighthouse-only: just use global metric rows (FPS, memory, webVitals, lighthouse)
+    allMetricRows = globalMetricRows;
+    logResultsTable(allMetricRows);
+  } else if (componentCount > 1) {
+    allMetricRows = logMultiComponentMetrics(metrics, thresholds, buffers, globalMetricRows);
+  } else {
+    allMetricRows = logSingleComponentMetrics(
+      metrics,
+      thresholds,
+      buffers,
+      globalMetricRows,
+      componentCount,
+    );
+  }
 
   // Log custom metrics if present
   if (metrics.customMetrics) {
@@ -431,6 +511,7 @@ export const assertPerformanceThresholds = ({
       trackFps,
       trackMemory,
       trackWebVitals,
+      trackLighthouse,
     });
     logTestFooter(passedCount, totalCount);
   } catch (e) {

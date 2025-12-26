@@ -11,6 +11,9 @@ import {
   resolveExportTrace,
   resolveFPSThresholds,
   resolveIterations,
+  resolveLighthouseBuffer,
+  resolveLighthouseConfig,
+  resolveLighthouseThresholds,
   resolveNetworkThrottling,
   resolveProfilerThresholds,
   resolveThresholds,
@@ -544,6 +547,170 @@ describe('resolveWebVitalsBuffers', () => {
   });
 });
 
+describe('resolveLighthouseThresholds', () => {
+  it('should return all zeros when no lighthouse thresholds configured', () => {
+    const config: TestConfig = {
+      thresholds: { base: { profiler: {} } },
+    };
+    const result = resolveLighthouseThresholds(config, false);
+    expect(result).toEqual({
+      performance: 0,
+      accessibility: 0,
+      bestPractices: 0,
+      seo: 0,
+      pwa: 0,
+    });
+  });
+
+  it('should resolve base lighthouse thresholds', () => {
+    const config: TestConfig = {
+      thresholds: {
+        base: {
+          profiler: {},
+          lighthouse: { performance: 90, accessibility: 100 },
+        },
+      },
+    };
+    const result = resolveLighthouseThresholds(config, false);
+    expect(result.performance).toBe(90);
+    expect(result.accessibility).toBe(100);
+    expect(result.bestPractices).toBe(0);
+    expect(result.seo).toBe(0);
+    expect(result.pwa).toBe(0);
+  });
+
+  it('should merge CI overrides with base thresholds', () => {
+    const config: TestConfig = {
+      thresholds: {
+        base: {
+          profiler: {},
+          lighthouse: { performance: 90, accessibility: 100 },
+        },
+        ci: {
+          lighthouse: { performance: 80 }, // Lower in CI
+        },
+      },
+    };
+    const result = resolveLighthouseThresholds(config, true);
+    expect(result.performance).toBe(80); // CI override
+    expect(result.accessibility).toBe(100); // From base
+  });
+
+  it('should use base thresholds when not in CI', () => {
+    const config: TestConfig = {
+      thresholds: {
+        base: {
+          profiler: {},
+          lighthouse: { performance: 90 },
+        },
+        ci: {
+          lighthouse: { performance: 80 },
+        },
+      },
+    };
+    const result = resolveLighthouseThresholds(config, false);
+    expect(result.performance).toBe(90);
+  });
+});
+
+describe('resolveLighthouseConfig', () => {
+  it('should return disabled when no lighthouse thresholds configured', () => {
+    const config: TestConfig = {
+      thresholds: { base: { profiler: {} } },
+    };
+    const result = resolveLighthouseConfig(config);
+    expect(result.enabled).toBe(false);
+    expect(result.formFactor).toBe('mobile');
+    expect(result.categories).toEqual(['performance', 'accessibility', 'best-practices', 'seo']);
+    expect(result.skipAudits).toEqual([]);
+  });
+
+  it('should auto-enable when lighthouse thresholds are configured', () => {
+    const config: TestConfig = {
+      thresholds: {
+        base: {
+          profiler: {},
+          lighthouse: { performance: 90 },
+        },
+      },
+    };
+    const result = resolveLighthouseConfig(config);
+    expect(result.enabled).toBe(true);
+  });
+
+  it('should auto-enable when CI lighthouse thresholds are configured', () => {
+    const config: TestConfig = {
+      thresholds: {
+        base: { profiler: {} },
+        ci: { lighthouse: { accessibility: 100 } },
+      },
+    };
+    const result = resolveLighthouseConfig(config);
+    expect(result.enabled).toBe(true);
+  });
+
+  it('should use custom formFactor when specified', () => {
+    const config: TestConfig = {
+      thresholds: {
+        base: {
+          profiler: {},
+          lighthouse: { performance: 90 },
+        },
+      },
+      lighthouse: { formFactor: 'desktop' },
+    };
+    const result = resolveLighthouseConfig(config);
+    expect(result.formFactor).toBe('desktop');
+  });
+
+  it('should use custom categories when specified', () => {
+    const config: TestConfig = {
+      thresholds: {
+        base: {
+          profiler: {},
+          lighthouse: { performance: 90 },
+        },
+      },
+      lighthouse: { categories: ['performance', 'pwa'] },
+    };
+    const result = resolveLighthouseConfig(config);
+    expect(result.categories).toEqual(['performance', 'pwa']);
+  });
+
+  it('should use skipAudits when specified', () => {
+    const config: TestConfig = {
+      thresholds: {
+        base: {
+          profiler: {},
+          lighthouse: { performance: 90 },
+        },
+      },
+      lighthouse: { skipAudits: ['uses-http2', 'redirects-http'] },
+    };
+    const result = resolveLighthouseConfig(config);
+    expect(result.skipAudits).toEqual(['uses-http2', 'redirects-http']);
+  });
+});
+
+describe('resolveLighthouseBuffer', () => {
+  it('should return default buffer when not configured', () => {
+    const config: TestConfig = {
+      thresholds: { base: { profiler: {} } },
+    };
+    const result = resolveLighthouseBuffer(config);
+    expect(result).toBe(5);
+  });
+
+  it('should return custom buffer when configured', () => {
+    const config: TestConfig = {
+      thresholds: { base: { profiler: {} } },
+      buffers: { lighthouse: 10 },
+    };
+    const result = resolveLighthouseBuffer(config);
+    expect(result).toBe(10);
+  });
+});
+
 describe('resolveBuffers', () => {
   it('should return all defaults when no buffers configured', () => {
     const config: TestConfig = {
@@ -556,6 +723,7 @@ describe('resolveBuffers', () => {
       fps: 20,
       heapGrowth: 20,
       webVitals: { lcp: 20, inp: 20, cls: 20 },
+      lighthouse: 5,
     });
   });
 
@@ -723,6 +891,7 @@ describe('addConfigurationAnnotation', () => {
         fps: 20,
         heapGrowth: 20,
         webVitals: { lcp: 20, inp: 20, cls: 20 },
+        lighthouse: 5,
       },
       trackFps: true,
       trackMemory: true,
@@ -730,6 +899,7 @@ describe('addConfigurationAnnotation', () => {
       iterations: 3,
       networkThrottling: 'slow-3g',
       exportTrace: { enabled: true },
+      lighthouse: { enabled: true, formFactor: 'mobile', categories: [], skipAudits: [] },
     } as unknown as ConfiguredTestInfo;
 
     addConfigurationAnnotation(testInfo, configuredTestInfo);
@@ -742,6 +912,7 @@ describe('addConfigurationAnnotation', () => {
     expect(testInfo.annotations[0].description).toContain('memory=enabled');
     expect(testInfo.annotations[0].description).toContain('network=slow-3g');
     expect(testInfo.annotations[0].description).toContain('iterations=3x');
+    expect(testInfo.annotations[0].description).toContain('lighthouse=enabled');
   });
 
   it('should show disabled for disabled settings', () => {
@@ -755,6 +926,7 @@ describe('addConfigurationAnnotation', () => {
         fps: 20,
         heapGrowth: 20,
         webVitals: { lcp: 20, inp: 20, cls: 20 },
+        lighthouse: 5,
       },
       trackFps: false,
       trackMemory: false,
@@ -762,6 +934,7 @@ describe('addConfigurationAnnotation', () => {
       iterations: 1,
       networkThrottling: undefined,
       exportTrace: { enabled: false },
+      lighthouse: { enabled: false, formFactor: 'mobile', categories: [], skipAudits: [] },
     } as unknown as ConfiguredTestInfo;
 
     addConfigurationAnnotation(testInfo, configuredTestInfo);
@@ -771,6 +944,7 @@ describe('addConfigurationAnnotation', () => {
     expect(testInfo.annotations[0].description).toContain('fps=disabled');
     expect(testInfo.annotations[0].description).toContain('network=disabled');
     expect(testInfo.annotations[0].description).toContain('iterations=single');
+    expect(testInfo.annotations[0].description).toContain('lighthouse=disabled');
   });
 
   it('should show custom for custom network config', () => {
@@ -784,6 +958,7 @@ describe('addConfigurationAnnotation', () => {
         fps: 20,
         heapGrowth: 20,
         webVitals: { lcp: 20, inp: 20, cls: 20 },
+        lighthouse: 5,
       },
       trackFps: false,
       trackMemory: false,
@@ -791,6 +966,7 @@ describe('addConfigurationAnnotation', () => {
       iterations: 1,
       networkThrottling: { downloadThroughput: 1000 },
       exportTrace: { enabled: false },
+      lighthouse: { enabled: false, formFactor: 'mobile', categories: [], skipAudits: [] },
     } as unknown as ConfiguredTestInfo;
 
     addConfigurationAnnotation(testInfo, configuredTestInfo);

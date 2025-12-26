@@ -18,6 +18,7 @@ const {
   mockCreateFPSMetricRow,
   mockCreateHeapGrowthMetricRow,
   mockCreateWebVitalsMetricRows,
+  mockCreateLighthouseMetricRows,
   mockCreateComponentMetrics,
   mockAssertMinimumActivity,
   mockAssertDurationThreshold,
@@ -57,6 +58,7 @@ const {
     passed: true,
   })),
   mockCreateWebVitalsMetricRows: vi.fn(() => []),
+  mockCreateLighthouseMetricRows: vi.fn(() => []),
   mockCreateComponentMetrics: vi.fn(() => [
     {
       id: 'counter',
@@ -86,6 +88,7 @@ vi.mock('@lib/playwright/assertions/logging', () => ({
   createFPSMetricRow: mockCreateFPSMetricRow,
   createHeapGrowthMetricRow: mockCreateHeapGrowthMetricRow,
   createWebVitalsMetricRows: mockCreateWebVitalsMetricRows,
+  createLighthouseMetricRows: mockCreateLighthouseMetricRows,
   createComponentMetrics: mockCreateComponentMetrics,
 }));
 
@@ -107,12 +110,20 @@ const DEFAULT_DURATION_THRESHOLDS = { avg: 500, p50: 0, p95: 0, p99: 0 };
 const DEFAULT_FPS_THRESHOLDS = { avg: 60, p50: 0, p95: 0, p99: 0 };
 const DEFAULT_MEMORY_THRESHOLDS = { heapGrowth: 0 };
 const DEFAULT_WEBVITALS_THRESHOLDS = { lcp: 0, inp: 0, cls: 0 };
+const DEFAULT_LIGHTHOUSE_THRESHOLDS = {
+  performance: 0,
+  accessibility: 0,
+  bestPractices: 0,
+  seo: 0,
+  pwa: 0,
+};
 
 const DEFAULT_THRESHOLDS = {
   profiler: { '*': { duration: DEFAULT_DURATION_THRESHOLDS, rerenders: 20 } },
   fps: DEFAULT_FPS_THRESHOLDS,
   memory: DEFAULT_MEMORY_THRESHOLDS,
   webVitals: DEFAULT_WEBVITALS_THRESHOLDS,
+  lighthouse: DEFAULT_LIGHTHOUSE_THRESHOLDS,
 };
 
 const DEFAULT_BUFFERS = {
@@ -121,6 +132,7 @@ const DEFAULT_BUFFERS = {
   fps: 20,
   heapGrowth: 20,
   webVitals: { lcp: 20, inp: 20, cls: 20 },
+  lighthouse: 5,
 };
 
 const createMockTestInfo = (overrides: Partial<ConfiguredTestInfo> = {}): ConfiguredTestInfo => {
@@ -134,6 +146,7 @@ const createMockTestInfo = (overrides: Partial<ConfiguredTestInfo> = {}): Config
     trackMemory: false,
     trackWebVitals: false,
     iterations: 1,
+    lighthouse: { enabled: false, formFactor: 'mobile', categories: [], skipAudits: [] },
     ...overrides,
   } as ConfiguredTestInfo;
 };
@@ -233,6 +246,7 @@ describe('assertPerformanceThresholds', () => {
         fps: DEFAULT_FPS_THRESHOLDS,
         memory: DEFAULT_MEMORY_THRESHOLDS,
         webVitals: DEFAULT_WEBVITALS_THRESHOLDS,
+        lighthouse: DEFAULT_LIGHTHOUSE_THRESHOLDS,
       },
     });
     const metrics = createMockMetrics({
@@ -318,6 +332,7 @@ describe('assertPerformanceThresholds', () => {
         fps: DEFAULT_FPS_THRESHOLDS,
         memory: DEFAULT_MEMORY_THRESHOLDS,
         webVitals: DEFAULT_WEBVITALS_THRESHOLDS,
+        lighthouse: DEFAULT_LIGHTHOUSE_THRESHOLDS,
       },
     });
     const metrics = createMockMetrics({

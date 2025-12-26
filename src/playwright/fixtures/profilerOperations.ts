@@ -25,6 +25,8 @@ export const waitForInitialization = async (
 /**
  * Waits for the performance store to stabilize (no new samples being added).
  * This ensures all React updates have completed before proceeding.
+ *
+ * @param requireSamples - If false, allows zero samples (for Lighthouse-only tests)
  */
 export const waitUntilStable = async (
   page: Page,
@@ -32,11 +34,12 @@ export const waitUntilStable = async (
     stabilityPeriodMs = PERFORMANCE_CONFIG.profiler.stabilityPeriodMs,
     checkIntervalMs = PERFORMANCE_CONFIG.profiler.checkIntervalMs,
     maxWaitMs = PERFORMANCE_CONFIG.profiler.maxWaitMs,
+    requireSamples = true,
   }: WaitForStableOptions = {},
 ): Promise<void> => {
   try {
     await page.waitForFunction(
-      ({ stabilityPeriod }) => {
+      ({ stabilityPeriod, needSamples }) => {
         const profiler = window.__REACT_PERFORMANCE__;
         if (!profiler) {
           return false;
@@ -61,9 +64,11 @@ export const waitUntilStable = async (
         }
 
         const timeSinceLastChange = Date.now() - tracker.lastChangeTime;
-        return timeSinceLastChange >= stabilityPeriod && currentCount > 0;
+        // Allow zero samples when profiler isn't configured (e.g., Lighthouse-only tests)
+        const hasSamples = needSamples ? currentCount > 0 : true;
+        return timeSinceLastChange >= stabilityPeriod && hasSamples;
       },
-      { stabilityPeriod: stabilityPeriodMs },
+      { stabilityPeriod: stabilityPeriodMs, needSamples: requireSamples },
       {
         timeout: maxWaitMs,
         polling: checkIntervalMs,

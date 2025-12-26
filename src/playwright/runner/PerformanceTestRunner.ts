@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { logger } from '../../utils';
 import { assertPerformanceThresholds } from '../assertions/performanceAssertions';
 import { type CustomMetrics, hasCustomMetrics } from '../customMetrics';
+import { runLighthouseAudit } from '../lighthouse';
 import {
   type ActiveFeatureHandles,
   type CDPFeatureHandle,
@@ -25,11 +26,16 @@ import {
   type IterationResult,
 } from '../iterations';
 import { attachTestResults } from '../metrics/metricsAttachment';
-import { type CapturedProfilerState, captureProfilerState } from '../profiler/profilerState';
+import {
+  type CapturedProfilerState,
+  captureProfilerState,
+  EMPTY_PROFILER_STATE,
+} from '../profiler/profilerState';
 import { exportTrace, startTraceCapture, type TraceHandle } from '../trace';
 import type {
   BasePerformanceFixtures,
   ConfiguredTestInfo,
+  LighthouseMetrics,
   PerformanceTestFixtures,
   PerformanceTestFunction,
 } from '../types';
@@ -45,6 +51,7 @@ import {
  */
 export type CombinedMetrics = CapturedProfilerState & {
   iterationMetrics?: IterationMetrics;
+  lighthouse?: LighthouseMetrics;
 };
 
 /**
@@ -56,6 +63,9 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
   private fpsHandle: FPSTrackingHandle | null = null;
   private memoryHandle: MemoryTrackingHandle | null = null;
   private traceHandle: TraceHandle | null = null;
+  private lighthouseMetrics: LighthouseMetrics | null = null;
+  private capturedMetrics: CombinedMetrics | null = null;
+  private testError: unknown | null = null;
   private readonly page: Page;
   private readonly fixtures: PerformanceTestFixtures<T>;
   private readonly testInfo: ConfiguredTestInfo;
@@ -64,6 +74,11 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
     this.page = page;
     this.fixtures = fixtures;
     this.testInfo = testInfo;
+  }
+
+  /** Returns true if profiler thresholds are configured (i.e., profiler samples are required) */
+  private hasProfilerThresholds(): boolean {
+    return Object.keys(this.testInfo.thresholds.profiler).length > 0;
   }
 
   /**
@@ -78,14 +93,68 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
     try {
       await this.setup();
 
+      // Run test iterations and capture metrics
       if (this.testInfo.iterations > 1) {
         await this.runMultipleIterations(testFn);
       } else {
         const warmupResult = await this.runWarmupIfEnabled(testFn);
         await this.runSingleIteration(testFn, warmupResult);
       }
+
+      // Run Lighthouse after test completes (if configured)
+      await this.runLighthouseIfEnabled();
+
+      // Add Lighthouse metrics to captured metrics
+      if (this.capturedMetrics && this.lighthouseMetrics) {
+        this.capturedMetrics = {
+          ...this.capturedMetrics,
+          lighthouse: this.lighthouseMetrics,
+        };
+      }
+
+      // Run assertions after all metrics are collected
+      await this.runAssertionsAndAttach();
     } finally {
       await this.cleanup();
+    }
+  }
+
+  /**
+   * Runs performance assertions and attaches results to test report.
+   * Called after all metrics (including Lighthouse) are collected.
+   */
+  private async runAssertionsAndAttach(): Promise<void> {
+    if (!this.capturedMetrics) {
+      return;
+    }
+
+    let assertionError: unknown | null = null;
+
+    try {
+      assertPerformanceThresholds({
+        metrics: this.capturedMetrics,
+        testInfo: this.testInfo,
+      });
+    } catch (error) {
+      assertionError = error;
+    }
+
+    // Always attach results, even if assertions fail
+    try {
+      await attachTestResults({
+        testInfo: this.testInfo,
+        metrics: this.capturedMetrics,
+      });
+    } catch (attachmentError) {
+      logger.warn('Failed to attach profiler results:', attachmentError);
+    }
+
+    // Throw test error first (from test execution), then assertion error
+    if (this.testError) {
+      throw this.testError;
+    }
+    if (assertionError) {
+      throw assertionError;
     }
   }
 
@@ -166,7 +235,10 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
     this.fixtures.performance.setTrackingHandle('fps-tracking', null);
     this.fixtures.performance.setTrackingHandle('memory-tracking', null);
 
-    const profilerState = await captureProfilerState(this.page);
+    // Skip profiler capture if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+    const profilerState = this.hasProfilerThresholds()
+      ? await captureProfilerState(this.page)
+      : EMPTY_PROFILER_STATE;
 
     // Convert component metrics to iteration-friendly format
     const components: Record<string, ComponentIterationData> = {};
@@ -197,22 +269,21 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
   /**
    * Executes a single iteration of the test.
    * If warmup was run, includes warmup metrics in iteration data for reference.
+   * Stores metrics in capturedMetrics for later assertion.
    */
   private async runSingleIteration(
     testFn: PerformanceTestFunction<T>,
     warmupResult: IterationResult | null,
   ): Promise<void> {
-    let metrics: CombinedMetrics | null = null;
     let fpsMetrics: FPSMetrics | null = null;
     let memoryMetrics: MemoryMetrics | null = null;
-    let caughtError: unknown | null = null;
 
     await this.startTrackingFeatures();
 
     try {
       await testFn(this.fixtures, this.testInfo);
     } catch (error) {
-      caughtError = error;
+      this.testError = error;
     } finally {
       fpsMetrics = await this.stopFpsTracking();
       memoryMetrics = await this.stopMemoryTracking();
@@ -252,41 +323,30 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
           true, // discardFirst = true (warmup)
         );
 
-        metrics = {
+        this.capturedMetrics = {
           ...profilerState,
           iterationMetrics,
         };
       } else {
-        metrics = profilerState;
+        this.capturedMetrics = profilerState;
       }
-
-      assertPerformanceThresholds({
-        metrics,
-        testInfo: this.testInfo,
-      });
     } catch (error) {
-      if (!caughtError) {
-        caughtError = error;
+      if (!this.testError) {
+        this.testError = error;
       } else {
-        logger.warn('Failed to capture/assert after prior error:', error);
+        logger.warn('Failed to capture metrics after prior error:', error);
       }
-    } finally {
-      await this.attachIfPresent(metrics);
-    }
-
-    if (caughtError) {
-      throw caughtError;
     }
   }
 
   /**
    * Executes the test multiple times and aggregates results.
    * When warmup=true, the first iteration is discarded from averages.
+   * Stores metrics in capturedMetrics for later assertion.
    */
   private async runMultipleIterations(testFn: PerformanceTestFunction<T>): Promise<void> {
     const { iterations, warmup } = this.testInfo;
     const iterationResults: IterationResult[] = [];
-    let caughtError: unknown | null = null;
 
     logger.debug(
       `Running ${iterations} iterations${warmup ? ' (first iteration is warmup)' : ''}...`,
@@ -301,7 +361,7 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
         iterationResults.push(result);
       } catch (error) {
         logger.error(`Iteration ${iterationNumber} failed:`, error);
-        caughtError = error;
+        this.testError = error;
         break;
       }
 
@@ -316,12 +376,17 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
       }
     }
 
+    // Only build combined metrics if we have results
+    if (iterationResults.length === 0) {
+      return;
+    }
+
     const aggregatedMetrics = aggregateIterationResults(iterationResults, warmup);
 
     const lastResult = iterationResults[iterationResults.length - 1];
     const customMetrics = this.captureCustomMetrics();
     const webVitals = await this.captureWebVitalsIfEnabled();
-    const combinedMetrics: CombinedMetrics = {
+    this.capturedMetrics = {
       sampleCount: aggregatedMetrics.rerenders,
       totalActualDuration: aggregatedMetrics.duration,
       totalBaseDuration: aggregatedMetrics.duration,
@@ -339,23 +404,6 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
       ...(webVitals && { webVitals }),
       ...(customMetrics && { customMetrics }),
     };
-
-    try {
-      assertPerformanceThresholds({
-        metrics: combinedMetrics,
-        testInfo: this.testInfo,
-      });
-    } catch (error) {
-      if (!caughtError) {
-        caughtError = error;
-      }
-    } finally {
-      await this.attachIfPresent(combinedMetrics);
-    }
-
-    if (caughtError) {
-      throw caughtError;
-    }
   }
 
   /**
@@ -378,7 +426,10 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
       this.fixtures.performance.setTrackingHandle('memory-tracking', null);
     }
 
-    const profilerState = await captureProfilerState(this.page);
+    // Skip profiler capture if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+    const profilerState = this.hasProfilerThresholds()
+      ? await captureProfilerState(this.page)
+      : EMPTY_PROFILER_STATE;
 
     // Convert component metrics to iteration-friendly format
     const components: Record<string, ComponentIterationData> = {};
@@ -467,8 +518,11 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
   private async captureMetricsWithOptionals(
     fpsMetrics: FPSMetrics | null,
     memoryMetrics: MemoryMetrics | null,
-  ): Promise<CapturedProfilerState> {
-    const profilerState = await captureProfilerState(this.page);
+  ): Promise<CombinedMetrics> {
+    // Skip profiler capture if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+    const profilerState = this.hasProfilerThresholds()
+      ? await captureProfilerState(this.page)
+      : EMPTY_PROFILER_STATE;
     const customMetrics = this.captureCustomMetrics();
     const webVitals = await this.captureWebVitalsIfEnabled();
     return {
@@ -477,6 +531,7 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
       ...(memoryMetrics && { memory: memoryMetrics }),
       ...(webVitals && { webVitals }),
       ...(customMetrics && { customMetrics }),
+      // Note: lighthouse metrics are added later in execute() after runLighthouseIfEnabled()
     };
   }
 
@@ -495,6 +550,39 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
   private captureCustomMetrics(): CustomMetrics | null {
     const metrics = this.fixtures.performance.getCustomMetrics();
     return hasCustomMetrics(metrics) ? metrics : null;
+  }
+
+  /**
+   * Runs Lighthouse audit if configured.
+   * Includes optional warmup audit when warmup is enabled.
+   */
+  private async runLighthouseIfEnabled(): Promise<void> {
+    if (!this.testInfo.lighthouse.enabled) {
+      return;
+    }
+
+    // Run warmup audit if enabled (discarded)
+    if (this.testInfo.warmup) {
+      logger.debug('Running Lighthouse warmup audit...');
+      try {
+        await runLighthouseAudit({
+          url: this.page.url(),
+          config: this.testInfo.lighthouse,
+          throttleRate: this.testInfo.throttleRate,
+          networkThrottling: this.testInfo.networkThrottling,
+        });
+      } catch (error) {
+        logger.warn('Lighthouse warmup failed, continuing:', error);
+      }
+    }
+
+    // Run actual audit
+    this.lighthouseMetrics = await runLighthouseAudit({
+      url: this.page.url(),
+      config: this.testInfo.lighthouse,
+      throttleRate: this.testInfo.throttleRate,
+      networkThrottling: this.testInfo.networkThrottling,
+    });
   }
 
   private async attachIfPresent(metrics: CapturedProfilerState | null): Promise<void> {

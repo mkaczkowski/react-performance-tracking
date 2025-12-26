@@ -5,6 +5,7 @@ export { getAllScenarios, getScenario, registerScenario, type ScenarioConfig } f
 import './BasicProfiler';
 import './FpsAnimation';
 import './IterationsTest';
+import './LighthouseTest';
 import './MemoryTest';
 import './MultiComponent';
 import './NetworkThrottling';
