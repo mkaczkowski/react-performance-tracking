@@ -10,6 +10,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
       '@lib/react': path.resolve(__dirname, 'src/react'),
       '@lib/playwright': path.resolve(__dirname, 'src/playwright'),
+      '@lib/lighthouse': path.resolve(__dirname, 'src/lighthouse'),
     },
   },
   test: {

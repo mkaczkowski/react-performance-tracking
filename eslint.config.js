@@ -53,7 +53,11 @@ export default tseslint.config(
 
   // Allow console in logger implementation and structured logging output
   {
-    files: ['src/utils/logger.ts', 'src/playwright/assertions/logging.ts'],
+    files: [
+      'src/utils/logger.ts',
+      'src/playwright/assertions/logging.ts',
+      'src/lighthouse/lighthouseAssertions.ts',
+    ],
     rules: {
       'no-console': 'off',
     },

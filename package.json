@@ -18,6 +18,11 @@
       "types": "./dist/playwright/index.d.ts",
       "import": "./dist/playwright/index.js",
       "require": "./dist/playwright/index.cjs"
+    },
+    "./lighthouse": {
+      "types": "./dist/lighthouse/index.d.ts",
+      "import": "./dist/lighthouse/index.js",
+      "require": "./dist/lighthouse/index.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -85,6 +90,7 @@
   },
   "peerDependencies": {
     "@playwright/test": "^1.40.0",
+    "lighthouse": ">=11.0.0",
     "react": "^18.0.0 || ^19.0.0"
   },
   "peerDependenciesMeta": {
@@ -92,6 +98,9 @@
       "optional": true
     },
     "@playwright/test": {
+      "optional": true
+    },
+    "lighthouse": {
       "optional": true
     }
   },
@@ -114,6 +123,7 @@
     "globals": "^16.5.0",
     "husky": "^9.1.7",
     "jsdom": "^27.3.0",
+    "lighthouse": "^13.0.1",
     "lint-staged": "^16.2.7",
     "playwright-core": "1.46.1",
     "prettier": "^3.0.0",

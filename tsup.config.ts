@@ -6,6 +6,7 @@ export default defineConfig({
     index: 'src/index.ts',
     'react/index': 'src/react/index.ts',
     'playwright/index': 'src/playwright/index.ts',
+    'lighthouse/index': 'src/lighthouse/index.ts',
   },
   // Generate both ESM and CJS formats
   format: ['esm', 'cjs'],
@@ -22,5 +23,5 @@ export default defineConfig({
   // Don't split chunks (simpler for library consumers)
   splitting: false,
   // External packages (peer deps)
-  external: ['react', 'react-dom', '@playwright/test', 'playwright-core'],
+  external: ['react', 'react-dom', '@playwright/test', 'playwright-core', 'lighthouse'],
 });
