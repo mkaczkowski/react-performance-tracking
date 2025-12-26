@@ -26,7 +26,11 @@ import {
   type IterationResult,
 } from '../iterations';
 import { attachTestResults } from '../metrics/metricsAttachment';
-import { type CapturedProfilerState, captureProfilerState } from '../profiler/profilerState';
+import {
+  type CapturedProfilerState,
+  captureProfilerState,
+  EMPTY_PROFILER_STATE,
+} from '../profiler/profilerState';
 import { exportTrace, startTraceCapture, type TraceHandle } from '../trace';
 import type {
   BasePerformanceFixtures,
@@ -70,6 +74,11 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
     this.page = page;
     this.fixtures = fixtures;
     this.testInfo = testInfo;
+  }
+
+  /** Returns true if profiler thresholds are configured (i.e., profiler samples are required) */
+  private hasProfilerThresholds(): boolean {
+    return Object.keys(this.testInfo.thresholds.profiler).length > 0;
   }
 
   /**
@@ -226,7 +235,10 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
     this.fixtures.performance.setTrackingHandle('fps-tracking', null);
     this.fixtures.performance.setTrackingHandle('memory-tracking', null);
 
-    const profilerState = await captureProfilerState(this.page);
+    // Skip profiler capture if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+    const profilerState = this.hasProfilerThresholds()
+      ? await captureProfilerState(this.page)
+      : EMPTY_PROFILER_STATE;
 
     // Convert component metrics to iteration-friendly format
     const components: Record<string, ComponentIterationData> = {};
@@ -414,7 +426,10 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
       this.fixtures.performance.setTrackingHandle('memory-tracking', null);
     }
 
-    const profilerState = await captureProfilerState(this.page);
+    // Skip profiler capture if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+    const profilerState = this.hasProfilerThresholds()
+      ? await captureProfilerState(this.page)
+      : EMPTY_PROFILER_STATE;
 
     // Convert component metrics to iteration-friendly format
     const components: Record<string, ComponentIterationData> = {};
@@ -504,7 +519,10 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
     fpsMetrics: FPSMetrics | null,
     memoryMetrics: MemoryMetrics | null,
   ): Promise<CombinedMetrics> {
-    const profilerState = await captureProfilerState(this.page);
+    // Skip profiler capture if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+    const profilerState = this.hasProfilerThresholds()
+      ? await captureProfilerState(this.page)
+      : EMPTY_PROFILER_STATE;
     const customMetrics = this.captureCustomMetrics();
     const webVitals = await this.captureWebVitalsIfEnabled();
     return {
@@ -548,7 +566,7 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
       logger.debug('Running Lighthouse warmup audit...');
       try {
         await runLighthouseAudit({
-          page: this.page,
+          url: this.page.url(),
           config: this.testInfo.lighthouse,
           throttleRate: this.testInfo.throttleRate,
           networkThrottling: this.testInfo.networkThrottling,
@@ -560,7 +578,7 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
 
     // Run actual audit
     this.lighthouseMetrics = await runLighthouseAudit({
-      page: this.page,
+      url: this.page.url(),
       config: this.testInfo.lighthouse,
       throttleRate: this.testInfo.throttleRate,
       networkThrottling: this.testInfo.networkThrottling,

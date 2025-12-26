@@ -265,7 +265,7 @@ export const resolveProfilerThresholds = (
   config: TestConfig,
   isCI: boolean,
 ): Record<string, ResolvedComponentThresholds> => {
-  const baseProfiler = config.thresholds.base.profiler;
+  const baseProfiler = config.thresholds.base.profiler ?? {};
   const ciProfiler = config.thresholds.ci?.profiler ?? {};
 
   // Get all unique component keys from both base and CI

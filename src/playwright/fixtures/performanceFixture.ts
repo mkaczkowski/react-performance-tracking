@@ -36,10 +36,13 @@ export function createPerformanceInstance(page: Page): PerformanceFixture['perfo
      * Waits for performance store initialization and stability.
      *
      * Note: Navigation should be done before calling this method.
+     * Note: Does not require samples - validation happens later based on thresholds.
      */
     init: async () => {
       await waitForInitialization(page);
-      await waitUntilStable(page);
+      // Don't require samples here - profiler validation occurs later
+      // based on whether profiler thresholds are configured
+      await waitUntilStable(page, { requireSamples: false });
     },
 
     setTrackingHandle: coordination.setHandle,

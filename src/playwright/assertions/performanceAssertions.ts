@@ -292,21 +292,26 @@ const runAllAssertions = ({
   trackWebVitals,
   trackLighthouse,
 }: AssertionConfig): void => {
-  // Basic activity assertion
-  assertMinimumActivity(metrics.sampleCount);
+  // Skip profiler assertions if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+  const hasProfilerThresholds = Object.keys(thresholds.profiler).length > 0;
 
-  // Per-component assertions
-  const componentEntries = Object.entries(metrics.components);
-  for (const [componentId, componentMetrics] of componentEntries) {
-    const componentThresholds = getComponentThreshold(componentId, thresholds);
-    runComponentAssertions(
-      componentId,
-      componentMetrics,
-      componentThresholds,
-      buffers,
-      throttleRate,
-      metrics.iterationMetrics,
-    );
+  if (hasProfilerThresholds) {
+    // Basic activity assertion
+    assertMinimumActivity(metrics.sampleCount);
+
+    // Per-component assertions
+    const componentEntries = Object.entries(metrics.components);
+    for (const [componentId, componentMetrics] of componentEntries) {
+      const componentThresholds = getComponentThreshold(componentId, thresholds);
+      runComponentAssertions(
+        componentId,
+        componentMetrics,
+        componentThresholds,
+        buffers,
+        throttleRate,
+        metrics.iterationMetrics,
+      );
+    }
   }
 
   // FPS assertion (global)
@@ -467,11 +472,26 @@ export const assertPerformanceThresholds = ({
   });
 
   // Build and log metrics based on component count
+  // Skip profiler-specific metrics if no profiler thresholds are configured (e.g., Lighthouse-only tests)
+  const hasProfilerThresholds = Object.keys(thresholds.profiler).length > 0;
   const componentCount = Object.keys(metrics.components).length;
-  const allMetricRows =
-    componentCount > 1
-      ? logMultiComponentMetrics(metrics, thresholds, buffers, globalMetricRows)
-      : logSingleComponentMetrics(metrics, thresholds, buffers, globalMetricRows, componentCount);
+
+  let allMetricRows: MetricRow[];
+  if (!hasProfilerThresholds) {
+    // Lighthouse-only: just use global metric rows (FPS, memory, webVitals, lighthouse)
+    allMetricRows = globalMetricRows;
+    logResultsTable(allMetricRows);
+  } else if (componentCount > 1) {
+    allMetricRows = logMultiComponentMetrics(metrics, thresholds, buffers, globalMetricRows);
+  } else {
+    allMetricRows = logSingleComponentMetrics(
+      metrics,
+      thresholds,
+      buffers,
+      globalMetricRows,
+      componentCount,
+    );
+  }
 
   // Log custom metrics if present
   if (metrics.customMetrics) {

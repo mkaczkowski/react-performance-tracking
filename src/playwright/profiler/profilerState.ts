@@ -141,6 +141,15 @@ function validateProfilerState(
   }
 }
 
+/** Empty profiler state for when profiler is not used */
+export const EMPTY_PROFILER_STATE: CapturedProfilerState = {
+  sampleCount: 0,
+  totalActualDuration: 0,
+  totalBaseDuration: 0,
+  phaseBreakdown: {},
+  components: {},
+};
+
 export const captureProfilerState = async (page: Page): Promise<CapturedProfilerState> => {
   const profilerState = await page.evaluate((): CapturedProfilerState | null => {
     const store = window.__REACT_PERFORMANCE__;

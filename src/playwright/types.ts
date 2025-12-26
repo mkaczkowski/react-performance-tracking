@@ -103,7 +103,7 @@ export type ComponentThresholds = {
  * Use "*" key as default fallback for components not explicitly defined.
  */
 export type ThresholdValues = {
-  profiler: {
+  profiler?: {
     [componentId: string]: ComponentThresholds;
   };
   fps?: FPSThresholds;
@@ -194,6 +194,8 @@ export type WaitForStableOptions = {
   stabilityPeriodMs?: Milliseconds;
   checkIntervalMs?: Milliseconds;
   maxWaitMs?: Milliseconds;
+  /** If false, allows zero samples (for Lighthouse-only tests). Default: true */
+  requireSamples?: boolean;
 };
 
 export type PerformanceInstance = {

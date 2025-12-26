@@ -1,5 +1,3 @@
-import type { Browser, Page } from '@playwright/test';
-
 import { logger } from '../../utils';
 import { NETWORK_PRESETS, type NetworkThrottlingConfig } from '../features';
 import type { LighthouseMetrics, ResolvedLighthouseConfig } from '../types';
@@ -42,16 +40,17 @@ type LighthouseFunction = (
     onlyCategories?: string[];
     skipAudits?: string[];
     formFactor?: string;
+    screenEmulation?: { mobile: boolean };
     throttling?: LighthouseThrottlingSettings;
     disableStorageReset?: boolean;
   },
 ) => Promise<LighthouseResult | undefined>;
 
 /**
- * Extended Browser type with wsEndpoint method (available in Chromium)
+ * Chrome launcher type for dynamic import
  */
-type BrowserWithWsEndpoint = Browser & {
-  wsEndpoint(): string;
+type ChromeLauncherModule = {
+  launch: (options?: { chromeFlags?: string[] }) => Promise<{ port: number; kill: () => void }>;
 };
 
 /**
@@ -100,51 +99,49 @@ function mapNetworkToLighthouse(
 }
 
 /**
- * Checks if Lighthouse is available as a dependency.
- * Lighthouse is an optional peer dependency.
+ * Checks if Lighthouse and chrome-launcher are available.
+ * Both are optional peer dependencies.
  */
-async function isLighthouseAvailable(): Promise<boolean> {
-  try {
-    // Use variable to prevent TypeScript from trying to resolve optional peer dependency
-    const moduleName = 'lighthouse';
-    await import(/* @vite-ignore */ moduleName);
-    return true;
-  } catch {
-    return false;
-  }
-}
+export async function areLighthouseDependenciesAvailable(): Promise<{
+  available: boolean;
+  missing: string[];
+}> {
+  const missing: string[] = [];
 
-/**
- * Validates browser is Chromium (required for Lighthouse).
- * Throws with helpful error message for non-Chromium browsers.
- */
-function validateBrowser(page: Page): void {
-  const browserName = page.context().browser()?.browserType().name();
-  if (browserName !== 'chromium') {
-    throw new Error(
-      `Lighthouse requires Chromium browser. Current: ${browserName ?? 'unknown'}. ` +
-        `Run tests with --project=chromium or remove lighthouse thresholds.`,
-    );
+  try {
+    await import(/* @vite-ignore */ 'lighthouse');
+  } catch {
+    missing.push('lighthouse');
   }
+
+  try {
+    await import(/* @vite-ignore */ 'chrome-launcher');
+  } catch {
+    missing.push('chrome-launcher');
+  }
+
+  return { available: missing.length === 0, missing };
 }
 
 /**
  * Options for running a Lighthouse audit.
  */
 export type RunLighthouseOptions = {
-  page: Page;
+  url: string;
   config: ResolvedLighthouseConfig;
   throttleRate: number;
   networkThrottling?: NetworkThrottlingConfig;
 };
 
 /**
- * Runs a Lighthouse audit on the current page.
- * Returns null if Lighthouse is disabled.
- * Throws if Lighthouse is not installed or browser is not Chromium.
+ * Runs a Lighthouse audit using chrome-launcher for a dedicated Chrome instance.
+ * This approach allows parallel test execution since each test gets its own Chrome.
+ *
+ * Best practice from Lighthouse docs: Launch Chrome with chrome-launcher,
+ * then run Lighthouse with the port. This ensures clean, isolated audits.
  */
 export async function runLighthouseAudit({
-  page,
+  url,
   config,
   throttleRate,
   networkThrottling,
@@ -153,62 +150,75 @@ export async function runLighthouseAudit({
     return null;
   }
 
-  validateBrowser(page);
-
-  if (!(await isLighthouseAvailable())) {
-    throw new Error('Lighthouse is not installed. Install it with: npm install -D lighthouse');
+  const { available, missing } = await areLighthouseDependenciesAvailable();
+  if (!available) {
+    throw new Error(
+      `Missing Lighthouse dependencies: ${missing.join(', ')}. ` +
+        `Install with: npm install -D ${missing.join(' ')}`,
+    );
   }
 
-  const url = page.url();
   logger.info(`Running Lighthouse audit on ${url}...`);
 
-  // Dynamic import to avoid bundling lighthouse when not used
-  // Use variable to prevent TypeScript from trying to resolve optional peer dependency
-  const moduleName = 'lighthouse';
-  const lighthouseModule = (await import(/* @vite-ignore */ moduleName)) as {
-    default: LighthouseFunction;
-  };
+  // Dynamic imports for optional dependencies
+  const [lighthouseModule, chromeLauncherModule] = await Promise.all([
+    import(/* @vite-ignore */ 'lighthouse') as Promise<{ default: LighthouseFunction }>,
+    import(/* @vite-ignore */ 'chrome-launcher') as Promise<ChromeLauncherModule>,
+  ]);
+
   const lighthouse = lighthouseModule.default;
-  const browser = page.context().browser() as BrowserWithWsEndpoint;
-  const port = parseInt(new URL(browser.wsEndpoint()).port, 10);
 
-  const throttling = mapNetworkToLighthouse(networkThrottling, throttleRate);
-
-  const startTime = Date.now();
-
-  const result = await lighthouse(url, {
-    port,
-    output: 'json',
-    onlyCategories: config.categories,
-    skipAudits: config.skipAudits.length > 0 ? config.skipAudits : undefined,
-    formFactor: config.formFactor,
-    throttling,
-    disableStorageReset: true, // Preserve page state (cookies, localStorage, etc.)
+  // Launch a dedicated Chrome instance for Lighthouse
+  // This ensures clean audits and allows parallel test execution
+  const chrome = await chromeLauncherModule.launch({
+    chromeFlags: ['--headless', '--no-sandbox', '--disable-gpu'],
   });
 
-  if (!result?.lhr) {
-    throw new Error('Lighthouse returned no results');
+  const throttling = mapNetworkToLighthouse(networkThrottling, throttleRate);
+  const startTime = Date.now();
+
+  try {
+    // Screen emulation must match formFactor setting
+    const isMobile = config.formFactor === 'mobile';
+
+    const result = await lighthouse(url, {
+      port: chrome.port,
+      output: 'json',
+      onlyCategories: config.categories,
+      skipAudits: config.skipAudits.length > 0 ? config.skipAudits : undefined,
+      formFactor: config.formFactor,
+      screenEmulation: { mobile: isMobile },
+      throttling,
+      disableStorageReset: true,
+    });
+
+    if (!result?.lhr) {
+      throw new Error('Lighthouse returned no results');
+    }
+
+    const extractScore = (cat?: { score: number | null }): number | null =>
+      cat?.score != null ? Math.round(cat.score * 100) : null;
+
+    const { categories } = result.lhr;
+    const metrics: LighthouseMetrics = {
+      performance: extractScore(categories.performance),
+      accessibility: extractScore(categories.accessibility),
+      bestPractices: extractScore(categories['best-practices']),
+      seo: extractScore(categories.seo),
+      pwa: extractScore(categories.pwa),
+      auditDurationMs: Date.now() - startTime,
+      url: result.lhr.finalDisplayedUrl || url,
+    };
+
+    logger.info(
+      `Lighthouse completed in ${(metrics.auditDurationMs / 1000).toFixed(1)}s: ` +
+        `Performance=${metrics.performance ?? 'N/A'}, ` +
+        `Accessibility=${metrics.accessibility ?? 'N/A'}`,
+    );
+
+    return metrics;
+  } finally {
+    // Always clean up the Chrome instance
+    chrome.kill();
   }
-
-  const extractScore = (cat?: { score: number | null }): number | null =>
-    cat?.score != null ? Math.round(cat.score * 100) : null;
-
-  const { categories } = result.lhr;
-  const metrics: LighthouseMetrics = {
-    performance: extractScore(categories.performance),
-    accessibility: extractScore(categories.accessibility),
-    bestPractices: extractScore(categories['best-practices']),
-    seo: extractScore(categories.seo),
-    pwa: extractScore(categories.pwa),
-    auditDurationMs: Date.now() - startTime,
-    url: result.lhr.finalDisplayedUrl || url,
-  };
-
-  logger.info(
-    `Lighthouse completed in ${(metrics.auditDurationMs / 1000).toFixed(1)}s: ` +
-      `Performance=${metrics.performance ?? 'N/A'}, ` +
-      `Accessibility=${metrics.accessibility ?? 'N/A'}`,
-  );
-
-  return metrics;
 }
