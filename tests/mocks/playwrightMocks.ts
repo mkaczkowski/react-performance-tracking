@@ -167,6 +167,7 @@ const DEFAULT_PERFORMANCE_CONFIG = {
   name: 'test-performance-data',
   trackFps: false,
   exportTrace: { enabled: false },
+  lighthouse: { enabled: false, formFactor: 'mobile', categories: [], skipAudits: [] },
 } as const;
 
 /**

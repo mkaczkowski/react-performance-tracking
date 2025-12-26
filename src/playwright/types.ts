@@ -20,6 +20,7 @@ export type BufferConfig = {
   fps: Percentage; // subtractive because higher FPS is better
   heapGrowth: Percentage; // additive: threshold + buffer = max allowed
   webVitals: WebVitalsBufferConfig; // additive buffers for LCP, INP, CLS
+  lighthouse: Percentage; // subtractive because higher scores are better
 };
 
 export type PartialBufferConfig = Partial<BufferConfig>;
@@ -110,6 +111,7 @@ export type ThresholdValues = {
     heapGrowth?: Bytes;
   };
   webVitals?: WebVitalsThresholds;
+  lighthouse?: LighthouseThresholds;
 };
 
 /**
@@ -125,6 +127,7 @@ export type PartialThresholdValues = {
     heapGrowth?: Bytes;
   };
   webVitals?: Partial<WebVitalsThresholds>;
+  lighthouse?: Partial<LighthouseThresholds>;
 };
 
 export type ThresholdConfig = {
@@ -142,6 +145,7 @@ export type TestConfig = {
   iterations?: number; // Number of times to run the test (default: 1)
   networkThrottling?: NetworkThrottlingConfig; // Chromium only; preset name or custom conditions
   exportTrace?: TraceExportConfig; // Chromium only; export CDP trace for flamegraph visualization
+  lighthouse?: LighthouseConfig; // Chromium only; Lighthouse-specific options
 };
 
 /**
@@ -166,6 +170,7 @@ export type ResolvedThresholdValues = {
     heapGrowth: Bytes; // 0 = no threshold, skip validation
   };
   webVitals: ResolvedWebVitalsThresholds; // lcp, inp, cls (0 = no validation)
+  lighthouse: ResolvedLighthouseThresholds; // performance, accessibility, etc. (0 = no validation)
 };
 
 export type ResolvedTestConfig = {
@@ -180,6 +185,7 @@ export type ResolvedTestConfig = {
   iterations: number;
   networkThrottling?: NetworkThrottlingConfig; // undefined = no network throttling
   exportTrace: ResolvedTraceExportConfig; // Trace export configuration
+  lighthouse: ResolvedLighthouseConfig; // Lighthouse audit configuration
 };
 
 export type ConfiguredTestInfo = TestInfo & ResolvedTestConfig;
@@ -239,3 +245,53 @@ export type PerformanceTestFunction<T extends BasePerformanceFixtures = BasePerf
 export type ProfilerPhase = PerformanceSample['phase'];
 
 export type PhaseBreakdown = Partial<Record<ProfilerPhase, number>>;
+
+// ============================================
+// Lighthouse Types
+// ============================================
+
+/** Lighthouse score (0-100) */
+export type LighthouseScore = number;
+
+/** Lighthouse category identifiers */
+export type LighthouseCategoryId =
+  | 'performance'
+  | 'accessibility'
+  | 'best-practices'
+  | 'seo'
+  | 'pwa';
+
+/** Lighthouse score thresholds (0 = skip validation) */
+export type LighthouseThresholds = {
+  performance?: LighthouseScore;
+  accessibility?: LighthouseScore;
+  bestPractices?: LighthouseScore;
+  seo?: LighthouseScore;
+  pwa?: LighthouseScore;
+};
+
+/** Resolved Lighthouse thresholds with defaults applied */
+export type ResolvedLighthouseThresholds = Required<LighthouseThresholds>;
+
+/** Lighthouse-specific configuration options */
+export type LighthouseConfig = {
+  formFactor?: 'mobile' | 'desktop';
+  categories?: LighthouseCategoryId[];
+  skipAudits?: string[];
+};
+
+/** Resolved Lighthouse configuration */
+export type ResolvedLighthouseConfig = Required<LighthouseConfig> & {
+  enabled: boolean;
+};
+
+/** Lighthouse audit results */
+export type LighthouseMetrics = {
+  performance: LighthouseScore | null;
+  accessibility: LighthouseScore | null;
+  bestPractices: LighthouseScore | null;
+  seo: LighthouseScore | null;
+  pwa: LighthouseScore | null;
+  auditDurationMs: number;
+  url: string;
+};

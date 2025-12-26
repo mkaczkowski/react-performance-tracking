@@ -54,8 +54,9 @@ await handle?.stop(); // Returns metrics and cleans up CDP session
 - Per-component thresholds with `"*"` as default fallback
 - Values can be simple (`duration: 500`) or detailed (`duration: { avg: 500, p50: 100, p95: 200 }`)
 - CI environment: merges `thresholds.base` + `thresholds.ci` (detected via `process.env.CI`)
-- Buffers provide tolerance: duration/rerenders/heapGrowth are additive (+20%), FPS is subtractive (-20%)
+- Buffers provide tolerance: duration/rerenders/heapGrowth are additive (+20%), FPS/Lighthouse are subtractive (-20%/-5%)
 - Percentiles inherit parent buffer (duration percentiles use `duration` buffer, FPS percentiles use `avg` buffer)
+- Lighthouse thresholds: `performance`, `accessibility`, `bestPractices`, `seo`, `pwa` (0-100 scores)
 
 **Package Exports:**
 
@@ -90,10 +91,11 @@ window.__REACT_PERFORMANCE__ = {
 
 **CDP Features (Chromium-only):**
 
-- CPU/network throttling, FPS, memory tracking, trace export require Chromium
+- CPU/network throttling, FPS, memory tracking, trace export, Lighthouse require Chromium
 - Non-Chromium browsers gracefully skip (return `null` handle, no errors)
 - CDP sessions must be cleaned up in `finally` blocks to avoid test interference
 - Use `safeCDPSend()` for non-critical cleanup (silent on failure)
+- Lighthouse uses dynamic import and optional peer dependency (install with `npm install -D lighthouse`)
 
 **Custom Fixtures Limitation:**
 
@@ -110,7 +112,8 @@ window.__REACT_PERFORMANCE__ = {
 - FPS tracking: Auto-enabled when `fps` thresholds configured (Chromium only)
 - Memory tracking: Auto-enabled when `memory.heapGrowth` threshold configured (Chromium only)
 - Web Vitals tracking: Auto-enabled when `webVitals` thresholds configured (all browsers)
-- No explicit `trackFps`, `trackMemory`, or `trackWebVitals` flags needed - pure config-based enablement
+- Lighthouse audits: Auto-enabled when `lighthouse` thresholds configured (Chromium only, requires optional `lighthouse` peer dependency)
+- No explicit flags needed - pure config-based enablement
 
 ## Code Style
 

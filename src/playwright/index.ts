@@ -220,3 +220,21 @@ export {
   type TraceHandle,
   type TraceMetadata,
 } from './trace';
+
+export { runLighthouseAudit, type RunLighthouseOptions } from './lighthouse';
+
+export {
+  resolveLighthouseBuffer,
+  resolveLighthouseConfig,
+  resolveLighthouseThresholds,
+} from './config/configResolver';
+
+export type {
+  LighthouseCategoryId,
+  LighthouseConfig,
+  LighthouseMetrics,
+  LighthouseScore,
+  LighthouseThresholds,
+  ResolvedLighthouseConfig,
+  ResolvedLighthouseThresholds,
+} from './types';

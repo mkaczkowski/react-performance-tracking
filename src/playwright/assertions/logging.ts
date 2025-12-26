@@ -16,11 +16,13 @@ import type {
 import type { CapturedComponentMetrics } from '../profiler/profilerState';
 import type {
   Bytes,
+  LighthouseMetrics,
   Milliseconds,
   Percentage,
   PhaseBreakdown,
   ResolvedDurationThresholds,
   ResolvedFPSThresholds,
+  ResolvedLighthouseThresholds,
   ThrottleRate,
 } from '../types';
 import {
@@ -644,6 +646,56 @@ export const createWebVitalsMetricRows = (
       threshold: `≤ ${effective.toFixed(3)}`,
       passed: webVitals.cls <= effective,
     });
+  }
+
+  return rows;
+};
+
+// ============================================
+// Lighthouse Metric Rows
+// ============================================
+
+const LIGHTHOUSE_CATEGORY_NAMES: Record<string, string> = {
+  performance: 'LH Performance',
+  accessibility: 'LH Accessibility',
+  bestPractices: 'LH Best Practices',
+  seo: 'LH SEO',
+  pwa: 'LH PWA',
+};
+
+/**
+ * Creates metric rows for Lighthouse scores (higher is better).
+ * Uses subtractive buffer (like FPS) since higher scores are better.
+ */
+export const createLighthouseMetricRows = (
+  metrics: LighthouseMetrics,
+  thresholds: ResolvedLighthouseThresholds,
+  bufferPercent: Percentage,
+): MetricRow[] => {
+  const rows: MetricRow[] = [];
+
+  const categories: Array<{
+    key: keyof ResolvedLighthouseThresholds;
+    actual: number | null;
+  }> = [
+    { key: 'performance', actual: metrics.performance },
+    { key: 'accessibility', actual: metrics.accessibility },
+    { key: 'bestPractices', actual: metrics.bestPractices },
+    { key: 'seo', actual: metrics.seo },
+    { key: 'pwa', actual: metrics.pwa },
+  ];
+
+  for (const { key, actual } of categories) {
+    const threshold = thresholds[key];
+    if (threshold > 0 && actual !== null) {
+      const effective = calculateEffectiveMinThreshold(threshold, bufferPercent);
+      rows.push({
+        name: LIGHTHOUSE_CATEGORY_NAMES[key] ?? key,
+        actual: String(actual),
+        threshold: `≥ ${effective.toFixed(0)}`,
+        passed: actual >= effective,
+      });
+    }
   }
 
   return rows;

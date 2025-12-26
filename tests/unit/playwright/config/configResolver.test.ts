@@ -556,6 +556,7 @@ describe('resolveBuffers', () => {
       fps: 20,
       heapGrowth: 20,
       webVitals: { lcp: 20, inp: 20, cls: 20 },
+      lighthouse: 5,
     });
   });
 
@@ -723,6 +724,7 @@ describe('addConfigurationAnnotation', () => {
         fps: 20,
         heapGrowth: 20,
         webVitals: { lcp: 20, inp: 20, cls: 20 },
+        lighthouse: 5,
       },
       trackFps: true,
       trackMemory: true,
@@ -730,6 +732,7 @@ describe('addConfigurationAnnotation', () => {
       iterations: 3,
       networkThrottling: 'slow-3g',
       exportTrace: { enabled: true },
+      lighthouse: { enabled: true, formFactor: 'mobile', categories: [], skipAudits: [] },
     } as unknown as ConfiguredTestInfo;
 
     addConfigurationAnnotation(testInfo, configuredTestInfo);
@@ -742,6 +745,7 @@ describe('addConfigurationAnnotation', () => {
     expect(testInfo.annotations[0].description).toContain('memory=enabled');
     expect(testInfo.annotations[0].description).toContain('network=slow-3g');
     expect(testInfo.annotations[0].description).toContain('iterations=3x');
+    expect(testInfo.annotations[0].description).toContain('lighthouse=enabled');
   });
 
   it('should show disabled for disabled settings', () => {
@@ -755,6 +759,7 @@ describe('addConfigurationAnnotation', () => {
         fps: 20,
         heapGrowth: 20,
         webVitals: { lcp: 20, inp: 20, cls: 20 },
+        lighthouse: 5,
       },
       trackFps: false,
       trackMemory: false,
@@ -762,6 +767,7 @@ describe('addConfigurationAnnotation', () => {
       iterations: 1,
       networkThrottling: undefined,
       exportTrace: { enabled: false },
+      lighthouse: { enabled: false, formFactor: 'mobile', categories: [], skipAudits: [] },
     } as unknown as ConfiguredTestInfo;
 
     addConfigurationAnnotation(testInfo, configuredTestInfo);
@@ -771,6 +777,7 @@ describe('addConfigurationAnnotation', () => {
     expect(testInfo.annotations[0].description).toContain('fps=disabled');
     expect(testInfo.annotations[0].description).toContain('network=disabled');
     expect(testInfo.annotations[0].description).toContain('iterations=single');
+    expect(testInfo.annotations[0].description).toContain('lighthouse=disabled');
   });
 
   it('should show custom for custom network config', () => {
@@ -784,6 +791,7 @@ describe('addConfigurationAnnotation', () => {
         fps: 20,
         heapGrowth: 20,
         webVitals: { lcp: 20, inp: 20, cls: 20 },
+        lighthouse: 5,
       },
       trackFps: false,
       trackMemory: false,
@@ -791,6 +799,7 @@ describe('addConfigurationAnnotation', () => {
       iterations: 1,
       networkThrottling: { downloadThroughput: 1000 },
       exportTrace: { enabled: false },
+      lighthouse: { enabled: false, formFactor: 'mobile', categories: [], skipAudits: [] },
     } as unknown as ConfiguredTestInfo;
 
     addConfigurationAnnotation(testInfo, configuredTestInfo);

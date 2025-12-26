@@ -10,10 +10,13 @@ import type {
   DurationThresholds,
   FPSThresholdObject,
   FPSThresholds,
+  LighthouseCategoryId,
   PercentileThresholdObject,
   ResolvedComponentThresholds,
   ResolvedDurationThresholds,
   ResolvedFPSThresholds,
+  ResolvedLighthouseConfig,
+  ResolvedLighthouseThresholds,
   ResolvedPercentileThresholds,
   ResolvedThresholdValues,
   TestConfig,
@@ -52,6 +55,13 @@ const hasMemoryThresholds = (config: TestConfig): boolean => {
  */
 const hasWebVitalsThresholds = (config: TestConfig): boolean => {
   return !!(config.thresholds.base.webVitals || config.thresholds.ci?.webVitals);
+};
+
+/**
+ * Check if Lighthouse thresholds are configured in base or CI config
+ */
+const hasLighthouseThresholds = (config: TestConfig): boolean => {
+  return !!(config.thresholds.base.lighthouse || config.thresholds.ci?.lighthouse);
 };
 
 /**
@@ -104,6 +114,63 @@ export const resolveWebVitalsThresholds = (
     inp: mergedWebVitals.inp ?? 0,
     cls: mergedWebVitals.cls ?? 0,
   };
+};
+
+// ============================================
+// Lighthouse Config Resolution
+// ============================================
+
+const DEFAULT_LIGHTHOUSE_BUFFER = 5;
+
+const DEFAULT_LIGHTHOUSE_CATEGORIES: LighthouseCategoryId[] = [
+  'performance',
+  'accessibility',
+  'best-practices',
+  'seo',
+];
+
+/**
+ * Resolves Lighthouse thresholds with CI overrides.
+ * 0 means no validation for that category.
+ */
+export const resolveLighthouseThresholds = (
+  config: TestConfig,
+  isCI: boolean,
+): ResolvedLighthouseThresholds => {
+  const base = config.thresholds.base.lighthouse ?? {};
+  const ci = config.thresholds.ci?.lighthouse ?? {};
+  const merged = isCI ? { ...base, ...ci } : base;
+
+  return {
+    performance: merged.performance ?? 0,
+    accessibility: merged.accessibility ?? 0,
+    bestPractices: merged.bestPractices ?? 0,
+    seo: merged.seo ?? 0,
+    pwa: merged.pwa ?? 0,
+  };
+};
+
+/**
+ * Resolves Lighthouse configuration.
+ * Auto-enabled when Lighthouse thresholds are configured.
+ */
+export const resolveLighthouseConfig = (config: TestConfig): ResolvedLighthouseConfig => {
+  const enabled = hasLighthouseThresholds(config);
+  const userConfig = config.lighthouse ?? {};
+
+  return {
+    enabled,
+    formFactor: userConfig.formFactor ?? 'mobile',
+    categories: userConfig.categories ?? DEFAULT_LIGHTHOUSE_CATEGORIES,
+    skipAudits: userConfig.skipAudits ?? [],
+  };
+};
+
+/**
+ * Resolves Lighthouse buffer (single value for all scores).
+ */
+export const resolveLighthouseBuffer = (config: TestConfig): number => {
+  return config.buffers?.lighthouse ?? DEFAULT_LIGHTHOUSE_BUFFER;
 };
 
 /**
@@ -241,6 +308,7 @@ export const resolveThresholds = (config: TestConfig, isCI: boolean): ResolvedTh
       heapGrowth,
     },
     webVitals: resolveWebVitalsThresholds(config, isCI),
+    lighthouse: resolveLighthouseThresholds(config, isCI),
   };
 };
 
@@ -265,6 +333,7 @@ export const resolveBuffers = (config: TestConfig): BufferConfig => ({
   fps: config.buffers?.fps ?? PERFORMANCE_CONFIG.buffers.fps,
   heapGrowth: config.buffers?.heapGrowth ?? PERFORMANCE_CONFIG.buffers.heapGrowth,
   webVitals: resolveWebVitalsBuffers(config),
+  lighthouse: resolveLighthouseBuffer(config),
 });
 
 /**
@@ -317,6 +386,7 @@ export const createConfiguredTestInfo = (
   const iterations = resolveIterations(testConfig);
   const networkThrottling = resolveNetworkThrottling(testConfig);
   const exportTrace = resolveExportTrace(testConfig);
+  const lighthouse = resolveLighthouseConfig(testConfig);
 
   // Create a new object with testInfo as prototype to preserve methods (like attach)
   // while adding performance configuration properties
@@ -332,6 +402,7 @@ export const createConfiguredTestInfo = (
   configuredInfo.iterations = iterations;
   configuredInfo.networkThrottling = networkThrottling;
   configuredInfo.exportTrace = exportTrace;
+  configuredInfo.lighthouse = lighthouse;
 
   return configuredInfo;
 };
@@ -353,6 +424,7 @@ export const addConfigurationAnnotation = (
     iterations,
     networkThrottling,
     exportTrace,
+    lighthouse,
   } = configuredTestInfo;
 
   const throttleDescription = throttleRate > 1 ? `${throttleRate}x` : 'disabled';
@@ -360,18 +432,19 @@ export const addConfigurationAnnotation = (
   const fpsDescription = trackFps ? 'enabled' : 'disabled';
   const memoryDescription = trackMemory ? 'enabled' : 'disabled';
   const webVitalsDescription = trackWebVitals ? 'enabled' : 'disabled';
+  const lighthouseDescription = lighthouse.enabled ? 'enabled' : 'disabled';
   const networkDescription = networkThrottling
     ? typeof networkThrottling === 'string'
       ? networkThrottling
       : 'custom'
     : 'disabled';
   const traceDescription = exportTrace.enabled ? 'enabled' : 'disabled';
-  const bufferDescription = `duration=${buffers.duration}%, rerenders=${buffers.rerenders}%${trackFps ? `, fps=${buffers.fps}%` : ''}${trackMemory ? `, heapGrowth=${buffers.heapGrowth}%` : ''}${trackWebVitals ? `, webVitals.lcp=${buffers.webVitals.lcp}%` : ''}`;
+  const bufferDescription = `duration=${buffers.duration}%, rerenders=${buffers.rerenders}%${trackFps ? `, fps=${buffers.fps}%` : ''}${trackMemory ? `, heapGrowth=${buffers.heapGrowth}%` : ''}${trackWebVitals ? `, webVitals.lcp=${buffers.webVitals.lcp}%` : ''}${lighthouse.enabled ? `, lighthouse=${buffers.lighthouse}%` : ''}`;
   const iterationsDescription =
     iterations > 1 ? `${iterations}x${warmup ? ' (first is warmup)' : ''}` : 'single';
 
   testInfo.annotations.push({
     type: 'config',
-    description: `throttle=${throttleDescription}, warmup=${warmupDescription}, fps=${fpsDescription}, memory=${memoryDescription}, webVitals=${webVitalsDescription}, network=${networkDescription}, trace=${traceDescription}, iterations=${iterationsDescription}, buffers=${bufferDescription}`,
+    description: `throttle=${throttleDescription}, warmup=${warmupDescription}, fps=${fpsDescription}, memory=${memoryDescription}, webVitals=${webVitalsDescription}, lighthouse=${lighthouseDescription}, network=${networkDescription}, trace=${traceDescription}, iterations=${iterationsDescription}, buffers=${bufferDescription}`,
   });
 };
