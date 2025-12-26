@@ -75,3 +75,7 @@ export {
   createPerformanceStore,
   updatePerformanceStore,
 } from './react';
+
+// Lighthouse
+export { createLighthouseTest, type LighthouseTest } from './lighthouse';
+export type { LighthouseMetrics, LighthouseTestConfig, LighthouseThresholds } from './lighthouse';

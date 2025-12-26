@@ -35,6 +35,12 @@ npm run format             # Format with Prettier
 - `PerformanceTestRunner` orchestrates: setup → warmup (CI default) → test → assertions → cleanup
 - Cross-boundary communication via `page.evaluate(() => window.__REACT_PERFORMANCE__)`
 
+**Lighthouse Layer** (`src/lighthouse/`): Page-level audits
+
+- `createLighthouseTest()` extends Playwright with `test.lighthouse()` method
+- `LighthouseTestRunner` runs Lighthouse audits via CDP and enforces score thresholds
+- Separate from performance tests - use for page-level audits, not React-specific profiling
+
 ### CDP Feature Plugin System
 
 All Chrome DevTools Protocol features (CPU/network throttling, FPS, memory, trace export) use a unified plugin architecture with registry-based lifecycle management:
@@ -62,6 +68,7 @@ await handle?.stop(); // Returns metrics and cleans up CDP session
 - `react-performance-tracking` - Main entry (re-exports both layers)
 - `react-performance-tracking/react` - React provider/hooks only
 - `react-performance-tracking/playwright` - Playwright test utilities only
+- `react-performance-tracking/lighthouse` - Lighthouse audit utilities (requires `lighthouse` peer dep)
 
 **Store Structure:**
 
@@ -141,7 +148,8 @@ site/pages/docs/
 │   ├── thresholds.mdx     # Performance budgets
 │   ├── throttling.mdx     # CPU/network throttling
 │   ├── custom-metrics.mdx # Custom marks/measures
-│   └── config-builder.mdx # Interactive config tool
+│   ├── config-builder.mdx # Interactive config tool
+│   └── lighthouse.mdx     # Lighthouse audits
 ├── api/
 │   ├── react.mdx          # React hooks & provider
 │   ├── playwright.mdx     # Playwright test API

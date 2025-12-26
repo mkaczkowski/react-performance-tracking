@@ -1,0 +1,361 @@
+# Lighthouse Audits
+
+Run Google Lighthouse audits as part of your Playwright tests.
+
+## Overview
+
+The Lighthouse integration provides a separate `test.lighthouse()` decorator that runs automated page audits and enforces score thresholds. This is completely separate from the `test.performance()` decorator - use whichever suits your testing needs, or both together.
+
+### Key Differences
+
+| Feature | `test.performance()` | `test.lighthouse()` |
+|---------|---------------------|---------------------|
+| Purpose | React Profiler metrics during interactions | Page-level audit at a point in time |
+| Metrics | Duration, rerenders, FPS, memory, Web Vitals | Lighthouse scores (0-100) |
+| When it runs | During test execution | After test function completes |
+| Browser support | Chromium (with graceful degradation) | Chromium only |
+
+## Installation
+
+Install Lighthouse as a dev dependency:
+
+```bash
+npm install -D lighthouse
+```
+
+## Basic Usage
+
+```ts
+import { test as base } from '@playwright/test';
+import { createLighthouseTest } from 'react-performance-tracking/lighthouse';
+
+const test = createLighthouseTest(base);
+
+test.lighthouse({
+  thresholds: {
+    performance: 90,
+    accessibility: 95,
+  },
+})('homepage audit', async ({ page }) => {
+  await page.goto('/');
+  // Lighthouse runs automatically after test function
+});
+```
+
+## Configuration
+
+### Thresholds
+
+Define minimum scores (0-100) for each category:
+
+```ts
+test.lighthouse({
+  thresholds: {
+    performance: 90,
+    accessibility: 95,
+    bestPractices: 90,
+    seo: 80,
+    pwa: 70,
+  },
+})('full audit', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+| Category | Description |
+|----------|-------------|
+| `performance` | Core Web Vitals, speed metrics |
+| `accessibility` | A11y best practices |
+| `bestPractices` | Modern web best practices |
+| `seo` | Search engine optimization |
+| `pwa` | Progressive Web App requirements |
+
+### Environment-Specific Thresholds
+
+Use different thresholds for CI vs local development:
+
+```ts
+test.lighthouse({
+  thresholds: {
+    base: {
+      performance: 90,
+      accessibility: 95,
+    },
+    ci: {
+      performance: 80, // More lenient in CI
+    },
+  },
+})('homepage', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+### Throttling
+
+Configure CPU and network throttling:
+
+```ts
+test.lighthouse({
+  throttling: {
+    cpu: 4,                    // CPU slowdown multiplier
+    network: 'fast-3g',        // Network preset
+  },
+  thresholds: {
+    performance: 80,
+  },
+})('mobile simulation', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+#### Network Presets
+
+| Preset | Latency | Download | Upload |
+|--------|---------|----------|--------|
+| `slow-3g` | 400ms | 500 Kbps | 500 Kbps |
+| `fast-3g` | 150ms | 1.6 Mbps | 750 Kbps |
+| `slow-4g` | 100ms | 3 Mbps | 1.5 Mbps |
+| `fast-4g` | 20ms | 10 Mbps | 5 Mbps |
+
+Or use custom network conditions:
+
+```ts
+throttling: {
+  network: {
+    latencyMs: 100,
+    downloadKbps: 2000,
+    uploadKbps: 1000,
+  },
+}
+```
+
+### Buffers
+
+Add tolerance to thresholds (scores are "higher is better", so buffer is subtractive):
+
+```ts
+test.lighthouse({
+  thresholds: {
+    performance: 90,      // Threshold
+  },
+  buffers: {
+    performance: 5,       // 5% buffer = 90 * 0.95 = 85.5 minimum
+  },
+})('with buffer', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+:::tip
+Default buffer is 5% for all categories.
+:::
+
+### Form Factor
+
+Choose between mobile and desktop audits:
+
+```ts
+test.lighthouse({
+  formFactor: 'desktop',  // or 'mobile' (default)
+  thresholds: {
+    performance: 90,
+  },
+})('desktop audit', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+### Warmup Audits
+
+Run a warmup audit before the actual measurement (discarded):
+
+```ts
+test.lighthouse({
+  warmup: true,           // Enabled by default in CI
+  thresholds: {
+    performance: 90,
+  },
+})('with warmup', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+### Skip Specific Audits
+
+Exclude specific audits from the run:
+
+```ts
+test.lighthouse({
+  skipAudits: ['robots-txt', 'canonical'],
+  thresholds: {
+    seo: 90,
+  },
+})('partial seo audit', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+### Categories
+
+Only run specific categories:
+
+```ts
+test.lighthouse({
+  categories: ['performance', 'accessibility'],
+  thresholds: {
+    performance: 90,
+    accessibility: 95,
+  },
+})('focused audit', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+## Full Configuration Example
+
+```ts
+test.lighthouse({
+  // Throttling
+  throttling: {
+    cpu: 4,
+    network: 'fast-3g',
+  },
+
+  // Score thresholds with CI overrides
+  thresholds: {
+    base: {
+      performance: 90,
+      accessibility: 95,
+      bestPractices: 90,
+      seo: 80,
+    },
+    ci: {
+      performance: 80,
+    },
+  },
+
+  // Buffer tolerance
+  buffers: {
+    performance: 5,
+    accessibility: 5,
+  },
+
+  // Audit configuration
+  categories: ['performance', 'accessibility', 'best-practices', 'seo'],
+  formFactor: 'mobile',
+  warmup: true,
+  skipAudits: ['robots-txt'],
+
+  // Custom artifact name
+  name: 'homepage-audit',
+
+})('full audit', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+## Using Both Decorators
+
+You can use both `test.performance()` and `test.lighthouse()` in the same test file:
+
+```ts
+import { test as base } from '@playwright/test';
+import { createPerformanceTest } from 'react-performance-tracking/playwright';
+import { createLighthouseTest } from 'react-performance-tracking/lighthouse';
+
+const perfTest = createPerformanceTest(base);
+const lhTest = createLighthouseTest(base);
+
+// React Performance Test
+perfTest.performance({
+  throttleRate: 4,
+  thresholds: {
+    base: {
+      profiler: { '*': { duration: 500, rerenders: 20 } },
+      fps: 55,
+    },
+  },
+})('dashboard renders fast', async ({ page, performance }) => {
+  await page.goto('/dashboard');
+  await performance.init();
+});
+
+// Lighthouse Audit Test
+lhTest.lighthouse({
+  throttling: { cpu: 4, network: 'fast-3g' },
+  thresholds: { performance: 90, accessibility: 95 },
+})('dashboard audit', async ({ page }) => {
+  await page.goto('/dashboard');
+});
+```
+
+## Test Results
+
+Lighthouse results are:
+
+1. **Logged to console** with a formatted table showing actual vs threshold scores
+2. **Attached as JSON** to the Playwright test report for later analysis
+
+Example console output:
+
+```
+════════════════════════════════════════════════════════════════════════════════
+ [Performance] PERFORMANCE TEST: lighthouse-homepage-audit
+════════════════════════════════════════════════════════════════════════════════
+ Environment: CI | CPU: 4x | Network: fast-3g
+────────────────────────────────────────────────────────────────────────────────
+
+ GLOBAL METRICS
+┌─────────────────┬────────┬───────────┬────────┐
+│ Metric          │ Actual │ Threshold │ Status │
+├─────────────────┼────────┼───────────┼────────┤
+│ Performance     │     92 │      >= 86│ ✓ PASS │
+│ Accessibility   │     98 │      >= 90│ ✓ PASS │
+└─────────────────┴────────┴───────────┴────────┘
+  URL: http://localhost:3000/
+  Duration: 12.3s
+
+════════════════════════════════════════════════════════════════════════════════
+ ✓ ALL CHECKS PASSED
+════════════════════════════════════════════════════════════════════════════════
+```
+
+## Requirements
+
+- **Chromium browser**: Lighthouse requires Chromium. Non-Chromium browsers will throw an error.
+- **Playwright launched browser**: The browser must be launched by Playwright (not connected to a remote browser).
+- **Lighthouse v11+**: Install as a peer dependency.
+
+## Troubleshooting
+
+### "Lighthouse is not installed"
+
+Install the Lighthouse package:
+
+```bash
+npm install -D lighthouse
+```
+
+### "Lighthouse requires Chromium"
+
+Ensure your Playwright config uses Chromium:
+
+```ts
+// playwright.config.ts
+export default defineConfig({
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+});
+```
+
+### "Cannot get browser WebSocket endpoint"
+
+This error occurs when:
+- The browser was connected to remotely (not launched by Playwright)
+- The browser doesn't support the required debugging interface
+
+Ensure you're using `chromium.launch()` (Playwright's default behavior).
