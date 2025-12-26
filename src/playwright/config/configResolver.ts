@@ -154,6 +154,8 @@ export const resolveLighthouseThresholds = (
  * Resolves Lighthouse configuration.
  * Auto-enabled when Lighthouse thresholds are configured.
  */
+const DEFAULT_CHROME_FLAGS = ['--headless', '--no-sandbox', '--disable-gpu'];
+
 export const resolveLighthouseConfig = (config: TestConfig): ResolvedLighthouseConfig => {
   const enabled = hasLighthouseThresholds(config);
   const userConfig = config.lighthouse ?? {};
@@ -163,6 +165,8 @@ export const resolveLighthouseConfig = (config: TestConfig): ResolvedLighthouseC
     formFactor: userConfig.formFactor ?? 'mobile',
     categories: userConfig.categories ?? DEFAULT_LIGHTHOUSE_CATEGORIES,
     skipAudits: userConfig.skipAudits ?? [],
+    chromeFlags: userConfig.chromeFlags ?? DEFAULT_CHROME_FLAGS,
+    disableStorageReset: userConfig.disableStorageReset ?? true,
   };
 };
 

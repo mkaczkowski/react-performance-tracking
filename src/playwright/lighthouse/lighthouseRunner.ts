@@ -2,9 +2,10 @@ import { logger } from '../../utils';
 import { NETWORK_PRESETS, type NetworkThrottlingConfig } from '../features';
 import type { LighthouseMetrics, ResolvedLighthouseConfig } from '../types';
 
-/**
- * Lighthouse throttling settings passed to lighthouse()
- */
+// ============================================
+// Types
+// ============================================
+
 type LighthouseThrottlingSettings = {
   cpuSlowdownMultiplier: number;
   requestLatencyMs: number;
@@ -13,9 +14,6 @@ type LighthouseThrottlingSettings = {
   rttMs: number;
 };
 
-/**
- * Lighthouse run result type (simplified from lighthouse package)
- */
 type LighthouseResult = {
   lhr: {
     categories: {
@@ -29,9 +27,6 @@ type LighthouseResult = {
   };
 };
 
-/**
- * Lighthouse function type for dynamic import
- */
 type LighthouseFunction = (
   url: string,
   options: {
@@ -46,17 +41,55 @@ type LighthouseFunction = (
   },
 ) => Promise<LighthouseResult | undefined>;
 
-/**
- * Chrome launcher type for dynamic import
- */
 type ChromeLauncherModule = {
   launch: (options?: { chromeFlags?: string[] }) => Promise<{ port: number; kill: () => void }>;
 };
 
-/**
- * Maps our network throttling config to Lighthouse throttling settings.
- * Reuses NETWORK_PRESETS for consistent behavior with network throttling feature.
- */
+// ============================================
+// Cached Imports (loaded once, reused)
+// ============================================
+
+let cachedLighthouse: LighthouseFunction | null = null;
+let cachedChromeLauncher: ChromeLauncherModule | null = null;
+
+async function loadDependencies(): Promise<{
+  lighthouse: LighthouseFunction;
+  chromeLauncher: ChromeLauncherModule;
+}> {
+  if (cachedLighthouse && cachedChromeLauncher) {
+    return { lighthouse: cachedLighthouse, chromeLauncher: cachedChromeLauncher };
+  }
+
+  const results = await Promise.allSettled([
+    import(/* @vite-ignore */ 'lighthouse'),
+    import(/* @vite-ignore */ 'chrome-launcher'),
+  ]);
+
+  const [lighthouseResult, chromeLauncherResult] = results;
+
+  const missing: string[] = [];
+  if (lighthouseResult.status === 'rejected') missing.push('lighthouse');
+  if (chromeLauncherResult.status === 'rejected') missing.push('chrome-launcher');
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing Lighthouse dependencies: ${missing.join(', ')}. ` +
+        `Install with: npm install -D ${missing.join(' ')}`,
+    );
+  }
+
+  cachedLighthouse = (lighthouseResult as PromiseFulfilledResult<{ default: LighthouseFunction }>)
+    .value.default;
+  cachedChromeLauncher = (chromeLauncherResult as PromiseFulfilledResult<ChromeLauncherModule>)
+    .value;
+
+  return { lighthouse: cachedLighthouse, chromeLauncher: cachedChromeLauncher };
+}
+
+// ============================================
+// Network Throttling Mapping
+// ============================================
+
 function mapNetworkToLighthouse(
   network: NetworkThrottlingConfig | undefined,
   cpuRate: number,
@@ -71,20 +104,17 @@ function mapNetworkToLighthouse(
 
   if (!network) return baseThrottling;
 
-  // Handle preset names (e.g., 'slow-3g', 'fast-3g', 'fast-4g')
   if (typeof network === 'string' && network in NETWORK_PRESETS) {
     const preset = NETWORK_PRESETS[network];
     return {
       cpuSlowdownMultiplier: cpuRate,
       requestLatencyMs: preset.latency,
-      // Convert bytes/sec to Kbps (bytes * 8 / 1024)
       downloadThroughputKbps: (preset.downloadThroughput * 8) / 1024,
       uploadThroughputKbps: (preset.uploadThroughput * 8) / 1024,
       rttMs: preset.latency,
     };
   }
 
-  // Handle custom network conditions
   if (typeof network === 'object' && 'downloadThroughput' in network) {
     return {
       cpuSlowdownMultiplier: cpuRate,
@@ -98,99 +128,85 @@ function mapNetworkToLighthouse(
   return baseThrottling;
 }
 
-/**
- * Checks if Lighthouse and chrome-launcher are available.
- * Both are optional peer dependencies.
- */
-export async function areLighthouseDependenciesAvailable(): Promise<{
-  available: boolean;
-  missing: string[];
-}> {
-  const missing: string[] = [];
+// ============================================
+// Timeout Wrapper
+// ============================================
+
+const DEFAULT_TIMEOUT_MS = 120_000;
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operation: string,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${operation} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
 
   try {
-    await import(/* @vite-ignore */ 'lighthouse');
-  } catch {
-    missing.push('lighthouse');
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId!);
   }
-
-  try {
-    await import(/* @vite-ignore */ 'chrome-launcher');
-  } catch {
-    missing.push('chrome-launcher');
-  }
-
-  return { available: missing.length === 0, missing };
 }
 
-/**
- * Options for running a Lighthouse audit.
- */
+// ============================================
+// Main Export
+// ============================================
+
 export type RunLighthouseOptions = {
   url: string;
   config: ResolvedLighthouseConfig;
   throttleRate: number;
   networkThrottling?: NetworkThrottlingConfig;
+  /** Timeout in ms for the Lighthouse audit. Default: 120000 (2 minutes) */
+  timeoutMs?: number;
 };
 
 /**
  * Runs a Lighthouse audit using chrome-launcher for a dedicated Chrome instance.
- * This approach allows parallel test execution since each test gets its own Chrome.
- *
- * Best practice from Lighthouse docs: Launch Chrome with chrome-launcher,
- * then run Lighthouse with the port. This ensures clean, isolated audits.
+ * Each test gets its own Chrome instance, enabling parallel execution.
  */
 export async function runLighthouseAudit({
   url,
   config,
   throttleRate,
   networkThrottling,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 }: RunLighthouseOptions): Promise<LighthouseMetrics | null> {
   if (!config.enabled) {
     return null;
   }
 
-  const { available, missing } = await areLighthouseDependenciesAvailable();
-  if (!available) {
-    throw new Error(
-      `Missing Lighthouse dependencies: ${missing.join(', ')}. ` +
-        `Install with: npm install -D ${missing.join(' ')}`,
-    );
-  }
-
   logger.info(`Running Lighthouse audit on ${url}...`);
 
-  // Dynamic imports for optional dependencies
-  const [lighthouseModule, chromeLauncherModule] = await Promise.all([
-    import(/* @vite-ignore */ 'lighthouse') as Promise<{ default: LighthouseFunction }>,
-    import(/* @vite-ignore */ 'chrome-launcher') as Promise<ChromeLauncherModule>,
-  ]);
+  const { lighthouse, chromeLauncher } = await loadDependencies();
 
-  const lighthouse = lighthouseModule.default;
-
-  // Launch a dedicated Chrome instance for Lighthouse
-  // This ensures clean audits and allows parallel test execution
-  const chrome = await chromeLauncherModule.launch({
-    chromeFlags: ['--headless', '--no-sandbox', '--disable-gpu'],
-  });
+  const chromeFlags = config.chromeFlags ?? ['--headless', '--no-sandbox', '--disable-gpu'];
+  const chrome = await chromeLauncher.launch({ chromeFlags });
 
   const throttling = mapNetworkToLighthouse(networkThrottling, throttleRate);
   const startTime = Date.now();
 
   try {
-    // Screen emulation must match formFactor setting
     const isMobile = config.formFactor === 'mobile';
 
-    const result = await lighthouse(url, {
+    const auditPromise = lighthouse(url, {
       port: chrome.port,
-      output: 'json',
+      output: 'html',
       onlyCategories: config.categories,
       skipAudits: config.skipAudits.length > 0 ? config.skipAudits : undefined,
       formFactor: config.formFactor,
       screenEmulation: { mobile: isMobile },
       throttling,
-      disableStorageReset: true,
+      disableStorageReset: config.disableStorageReset ?? true,
     });
+
+    const result = await withTimeout(auditPromise, timeoutMs, 'Lighthouse audit');
 
     if (!result?.lhr) {
       throw new Error('Lighthouse returned no results');
@@ -218,7 +234,6 @@ export async function runLighthouseAudit({
 
     return metrics;
   } finally {
-    // Always clean up the Chrome instance
     chrome.kill();
   }
 }

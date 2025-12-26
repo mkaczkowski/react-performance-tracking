@@ -32,7 +32,8 @@ The package has **optional** peer dependencies. Install only what you need:
 {
   "react": "^18.0.0 || ^19.0.0",
   "@playwright/test": "^1.40.0",
-  "lighthouse": ">=11.0.0"
+  "lighthouse": ">=11.0.0",
+  "chrome-launcher": ">=1.0.0"
 }
 ```
 
@@ -40,10 +41,10 @@ The package has **optional** peer dependencies. Install only what you need:
 |------------|-----------------|
 | `react` | Using the React provider/hooks in your app |
 | `@playwright/test` | Using the Playwright test integration |
-| `lighthouse` | Using Lighthouse audits (`npm install -D lighthouse`) |
+| `lighthouse` + `chrome-launcher` | Using Lighthouse audits (`npm install -D lighthouse chrome-launcher`) |
 
 :::info
-All peer dependencies are optional. Install only what you use. Lighthouse is only needed if you configure `lighthouse` thresholds.
+All peer dependencies are optional. Install only what you use. Lighthouse audits require both `lighthouse` and `chrome-launcher`.
 :::
 
 ## Package Exports

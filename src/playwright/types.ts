@@ -280,6 +280,10 @@ export type LighthouseConfig = {
   formFactor?: 'mobile' | 'desktop';
   categories?: LighthouseCategoryId[];
   skipAudits?: string[];
+  /** Chrome flags for Lighthouse's Chrome instance. Default: ['--headless', '--no-sandbox', '--disable-gpu'] */
+  chromeFlags?: string[];
+  /** Prevents Lighthouse from clearing storage between runs. Default: true */
+  disableStorageReset?: boolean;
 };
 
 /** Resolved Lighthouse configuration */
