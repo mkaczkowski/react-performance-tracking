@@ -103,6 +103,12 @@ vi.mock('@lib/playwright/assertions/validators', () => ({
   assertLCPThreshold: vi.fn(),
   assertINPThreshold: vi.fn(),
   assertCLSThreshold: vi.fn(),
+  assertTTFBThreshold: vi.fn(),
+  assertFCPThreshold: vi.fn(),
+  assertPercentileThreshold: vi.fn(),
+  assertTBTThreshold: vi.fn(),
+  assertMaxTaskDurationThreshold: vi.fn(),
+  assertTaskCountThreshold: vi.fn(),
 }));
 
 // Default resolved threshold values for tests
@@ -117,6 +123,7 @@ const DEFAULT_LIGHTHOUSE_THRESHOLDS = {
   seo: 0,
   pwa: 0,
 };
+const DEFAULT_LONGTASKS_THRESHOLDS = { tbt: 0, maxDuration: 0, maxCount: 0 };
 
 const DEFAULT_THRESHOLDS = {
   profiler: { '*': { duration: DEFAULT_DURATION_THRESHOLDS, rerenders: 20 } },
@@ -124,6 +131,7 @@ const DEFAULT_THRESHOLDS = {
   memory: DEFAULT_MEMORY_THRESHOLDS,
   webVitals: DEFAULT_WEBVITALS_THRESHOLDS,
   lighthouse: DEFAULT_LIGHTHOUSE_THRESHOLDS,
+  longTasks: DEFAULT_LONGTASKS_THRESHOLDS,
 };
 
 const DEFAULT_BUFFERS = {
@@ -133,6 +141,7 @@ const DEFAULT_BUFFERS = {
   heapGrowth: 20,
   webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
   lighthouse: 5,
+  longTasks: { tbt: 20, maxDuration: 20, maxCount: 20 },
 };
 
 const createMockTestInfo = (overrides: Partial<ConfiguredTestInfo> = {}): ConfiguredTestInfo => {
@@ -145,6 +154,7 @@ const createMockTestInfo = (overrides: Partial<ConfiguredTestInfo> = {}): Config
     trackFps: false,
     trackMemory: false,
     trackWebVitals: false,
+    trackLongTasks: false,
     iterations: 1,
     lighthouse: { enabled: false, formFactor: 'mobile', categories: [], skipAudits: [] },
     ...overrides,
@@ -247,6 +257,7 @@ describe('assertPerformanceThresholds', () => {
         memory: DEFAULT_MEMORY_THRESHOLDS,
         webVitals: DEFAULT_WEBVITALS_THRESHOLDS,
         lighthouse: DEFAULT_LIGHTHOUSE_THRESHOLDS,
+        longTasks: DEFAULT_LONGTASKS_THRESHOLDS,
       },
     });
     const metrics = createMockMetrics({
@@ -333,6 +344,7 @@ describe('assertPerformanceThresholds', () => {
         memory: DEFAULT_MEMORY_THRESHOLDS,
         webVitals: DEFAULT_WEBVITALS_THRESHOLDS,
         lighthouse: DEFAULT_LIGHTHOUSE_THRESHOLDS,
+        longTasks: DEFAULT_LONGTASKS_THRESHOLDS,
       },
     });
     const metrics = createMockMetrics({

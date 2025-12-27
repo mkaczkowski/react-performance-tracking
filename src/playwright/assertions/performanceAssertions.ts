@@ -2,6 +2,7 @@
 import { expect } from '@playwright/test';
 
 import type { ComponentPercentileValues, IterationMetrics, PercentileValues } from '../iterations';
+import type { LongTaskMetrics, ResolvedLongTaskThresholds } from '../longTasks/types';
 import type { CapturedComponentMetrics, CapturedProfilerState } from '../profiler/profilerState';
 import type {
   BufferConfig,
@@ -25,6 +26,7 @@ import {
   createFPSPercentileRows,
   createHeapGrowthMetricRow,
   createLighthouseMetricRows,
+  createLongTasksMetricRows,
   createSamplesMetricRow,
   createWebVitalsMetricRows,
   hasFPSPercentileThresholds,
@@ -46,19 +48,23 @@ import {
   assertHeapGrowthThreshold,
   assertINPThreshold,
   assertLCPThreshold,
+  assertMaxTaskDurationThreshold,
   assertMemoizationEffectiveness,
   assertMinimumActivity,
   assertPercentileThreshold,
   assertSampleCountThreshold,
+  assertTaskCountThreshold,
+  assertTBTThreshold,
   assertTTFBThreshold,
 } from './validators';
 
 /**
- * Metrics with optional iteration and Lighthouse data.
+ * Metrics with optional iteration, Lighthouse, and Long Task data.
  */
 type MetricsWithIterations = CapturedProfilerState & {
   iterationMetrics?: IterationMetrics;
   lighthouse?: LighthouseMetrics;
+  longTasks?: LongTaskMetrics | null;
 };
 
 /**
@@ -71,6 +77,7 @@ type GlobalMetricsConfig = {
   trackFps: boolean;
   trackMemory: boolean;
   trackWebVitals: boolean;
+  trackLongTasks: boolean;
   trackLighthouse: boolean;
 };
 
@@ -121,6 +128,7 @@ const buildGlobalMetricRows = ({
   trackFps,
   trackMemory,
   trackWebVitals,
+  trackLongTasks,
   trackLighthouse,
 }: GlobalMetricsConfig): MetricRow[] => {
   const rows: MetricRow[] = [];
@@ -162,6 +170,16 @@ const buildGlobalMetricRows = ({
     rows.push(...webVitalsRows);
   }
 
+  // Long task metrics (Chromium-only)
+  if (trackLongTasks && metrics.longTasks) {
+    const longTasksRows = createLongTasksMetricRows(
+      metrics.longTasks,
+      thresholds.longTasks,
+      buffers.longTasks,
+    );
+    rows.push(...longTasksRows);
+  }
+
   // Lighthouse metrics
   if (trackLighthouse && metrics.lighthouse) {
     const lighthouseRows = createLighthouseMetricRows(
@@ -186,6 +204,7 @@ type AssertionConfig = {
   trackFps: boolean;
   trackMemory: boolean;
   trackWebVitals: boolean;
+  trackLongTasks: boolean;
   trackLighthouse: boolean;
 };
 
@@ -292,6 +311,7 @@ const runAllAssertions = ({
   trackFps,
   trackMemory,
   trackWebVitals,
+  trackLongTasks,
   trackLighthouse,
 }: AssertionConfig): void => {
   // Skip profiler assertions if no profiler thresholds are configured (e.g., Lighthouse-only tests)
@@ -343,6 +363,11 @@ const runAllAssertions = ({
   // Web vitals assertions (global)
   if (trackWebVitals && metrics.webVitals) {
     runWebVitalsAssertions(metrics.webVitals, thresholds.webVitals, buffers.webVitals);
+  }
+
+  // Long task assertions (global) - only if metrics available (Chromium-only)
+  if (trackLongTasks && metrics.longTasks) {
+    runLongTaskAssertions(metrics.longTasks, thresholds.longTasks, buffers.longTasks);
   }
 
   // Lighthouse assertions (global)
@@ -416,6 +441,43 @@ const runLighthouseAssertions = (
 };
 
 /**
+ * Runs long task threshold assertions.
+ * Only validates metrics that are non-zero and have thresholds configured.
+ */
+const runLongTaskAssertions = (
+  longTasks: LongTaskMetrics,
+  thresholds: ResolvedLongTaskThresholds,
+  buffers: BufferConfig['longTasks'],
+): void => {
+  // TBT assertion
+  if (thresholds.tbt > 0) {
+    assertTBTThreshold({
+      actual: longTasks.tbt,
+      threshold: thresholds.tbt,
+      bufferPercent: buffers.tbt,
+    });
+  }
+
+  // Max duration assertion
+  if (thresholds.maxDuration > 0 && longTasks.maxDuration > 0) {
+    assertMaxTaskDurationThreshold({
+      actual: longTasks.maxDuration,
+      threshold: thresholds.maxDuration,
+      bufferPercent: buffers.maxDuration,
+    });
+  }
+
+  // Task count assertion
+  if (thresholds.maxCount > 0) {
+    assertTaskCountThreshold({
+      actual: longTasks.count,
+      threshold: thresholds.maxCount,
+      bufferPercent: buffers.maxCount,
+    });
+  }
+};
+
+/**
  * Logs single component breakdown (phases and component name).
  */
 const logSingleComponentBreakdown = (
@@ -450,6 +512,7 @@ export const assertPerformanceThresholds = ({
     trackFps,
     trackMemory,
     trackWebVitals,
+    trackLongTasks,
     iterations,
     networkThrottling,
     lighthouse,
@@ -478,6 +541,7 @@ export const assertPerformanceThresholds = ({
     trackFps: trackFps === true,
     trackMemory: trackMemory === true,
     trackWebVitals: trackWebVitals === true,
+    trackLongTasks: trackLongTasks === true,
     trackLighthouse,
   });
 
@@ -521,6 +585,7 @@ export const assertPerformanceThresholds = ({
       trackFps,
       trackMemory,
       trackWebVitals,
+      trackLongTasks,
       trackLighthouse,
     });
     logTestFooter(passedCount, totalCount);

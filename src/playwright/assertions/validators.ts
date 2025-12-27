@@ -293,3 +293,79 @@ export const assertPercentileThreshold = ({
       `threshold: ${threshold}ms + ${bufferPercent}% buffer)`,
   ).toBeLessThanOrEqual(effective);
 };
+
+// ============================================
+// Long Task Threshold Validators
+// ============================================
+
+/**
+ * Parameters for TBT threshold assertion.
+ */
+type TBTThresholdParams = BaseThresholdParams<Milliseconds>;
+
+/**
+ * Validates Total Blocking Time is within threshold.
+ * Buffer is additive (threshold + buffer% = max allowed).
+ */
+export const assertTBTThreshold = ({
+  actual,
+  threshold,
+  bufferPercent,
+}: TBTThresholdParams): void => {
+  const effective = calculateEffectiveThreshold(threshold, bufferPercent);
+
+  expect(
+    actual,
+    `TBT should be ≤${effective.toFixed(1)}ms ` +
+      `(actual: ${actual.toFixed(2)}ms, ` +
+      `threshold: ${threshold}ms + ${bufferPercent}% buffer)`,
+  ).toBeLessThanOrEqual(effective);
+};
+
+/**
+ * Parameters for max task duration threshold assertion.
+ */
+type MaxTaskDurationThresholdParams = BaseThresholdParams<Milliseconds>;
+
+/**
+ * Validates maximum single task duration is within threshold.
+ * Buffer is additive (threshold + buffer% = max allowed).
+ */
+export const assertMaxTaskDurationThreshold = ({
+  actual,
+  threshold,
+  bufferPercent,
+}: MaxTaskDurationThresholdParams): void => {
+  const effective = calculateEffectiveThreshold(threshold, bufferPercent);
+
+  expect(
+    actual,
+    `Max task duration should be ≤${effective.toFixed(1)}ms ` +
+      `(actual: ${actual.toFixed(2)}ms, ` +
+      `threshold: ${threshold}ms + ${bufferPercent}% buffer)`,
+  ).toBeLessThanOrEqual(effective);
+};
+
+/**
+ * Parameters for task count threshold assertion.
+ */
+type TaskCountThresholdParams = BaseThresholdParams;
+
+/**
+ * Validates long task count is within threshold.
+ * Buffer is additive (threshold + buffer% = max allowed).
+ */
+export const assertTaskCountThreshold = ({
+  actual,
+  threshold,
+  bufferPercent,
+}: TaskCountThresholdParams): void => {
+  const effective = calculateEffectiveThreshold(threshold, bufferPercent, true);
+
+  expect(
+    actual,
+    `Long task count should be ≤${effective} ` +
+      `(actual: ${actual}, ` +
+      `threshold: ${threshold} + ${bufferPercent}% buffer)`,
+  ).toBeLessThanOrEqual(effective);
+};

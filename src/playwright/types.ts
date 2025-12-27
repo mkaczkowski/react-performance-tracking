@@ -4,6 +4,11 @@ import type { CustomMetrics } from './customMetrics';
 import type { NetworkThrottlingConfig, ResettableCDPFeatureHandle } from './features';
 import type { ResolvedTraceExportConfig, TraceExportConfig } from './trace/types';
 import type {
+  LongTaskBufferConfig,
+  LongTaskThresholds,
+  ResolvedLongTaskThresholds,
+} from './longTasks/types';
+import type {
   ResolvedWebVitalsThresholds,
   WebVitalsBufferConfig,
   WebVitalsThresholds,
@@ -21,6 +26,7 @@ export type BufferConfig = {
   heapGrowth: Percentage; // additive: threshold + buffer = max allowed
   webVitals: WebVitalsBufferConfig; // additive buffers for LCP, INP, CLS
   lighthouse: Percentage; // subtractive because higher scores are better
+  longTasks: LongTaskBufferConfig; // additive buffers for TBT, maxDuration, maxCount
 };
 
 export type PartialBufferConfig = Partial<BufferConfig>;
@@ -112,6 +118,7 @@ export type ThresholdValues = {
   };
   webVitals?: WebVitalsThresholds;
   lighthouse?: LighthouseThresholds;
+  longTasks?: LongTaskThresholds;
 };
 
 /**
@@ -128,6 +135,7 @@ export type PartialThresholdValues = {
   };
   webVitals?: Partial<WebVitalsThresholds>;
   lighthouse?: Partial<LighthouseThresholds>;
+  longTasks?: Partial<LongTaskThresholds>;
 };
 
 export type ThresholdConfig = {
@@ -171,6 +179,7 @@ export type ResolvedThresholdValues = {
   };
   webVitals: ResolvedWebVitalsThresholds; // lcp, inp, cls (0 = no validation)
   lighthouse: ResolvedLighthouseThresholds; // performance, accessibility, etc. (0 = no validation)
+  longTasks: ResolvedLongTaskThresholds; // tbt, maxDuration, maxCount (0 = no validation)
 };
 
 export type ResolvedTestConfig = {
@@ -182,6 +191,7 @@ export type ResolvedTestConfig = {
   trackFps: boolean;
   trackMemory: boolean;
   trackWebVitals: boolean;
+  trackLongTasks: boolean;
   iterations: number;
   networkThrottling?: NetworkThrottlingConfig; // undefined = no network throttling
   exportTrace: ResolvedTraceExportConfig; // Trace export configuration

@@ -13,6 +13,11 @@ import type {
   PercentileMetrics,
   PercentileValues,
 } from '../iterations';
+import type {
+  LongTaskBufferConfig,
+  LongTaskMetrics,
+  ResolvedLongTaskThresholds,
+} from '../longTasks/types';
 import type { CapturedComponentMetrics } from '../profiler/profilerState';
 import type {
   Bytes,
@@ -718,6 +723,57 @@ export const createLighthouseMetricRows = (
         passed: actual >= effective,
       });
     }
+  }
+
+  return rows;
+};
+
+// ============================================
+// Long Task Metric Rows
+// ============================================
+
+/**
+ * Creates metric rows for long task metrics.
+ * Uses additive buffers (threshold + buffer% = max allowed).
+ */
+export const createLongTasksMetricRows = (
+  longTasks: LongTaskMetrics,
+  thresholds: ResolvedLongTaskThresholds,
+  buffers: LongTaskBufferConfig,
+): MetricRow[] => {
+  const rows: MetricRow[] = [];
+
+  // TBT (Total Blocking Time)
+  if (thresholds.tbt > 0) {
+    const effective = calculateEffectiveThreshold(thresholds.tbt, buffers.tbt);
+    rows.push({
+      name: 'TBT',
+      actual: `${longTasks.tbt.toFixed(0)}ms`,
+      threshold: `≤ ${effective.toFixed(0)}ms`,
+      passed: longTasks.tbt <= effective,
+    });
+  }
+
+  // Max Duration (only if there were any long tasks)
+  if (thresholds.maxDuration > 0 && longTasks.maxDuration > 0) {
+    const effective = calculateEffectiveThreshold(thresholds.maxDuration, buffers.maxDuration);
+    rows.push({
+      name: 'Max Task',
+      actual: `${longTasks.maxDuration.toFixed(0)}ms`,
+      threshold: `≤ ${effective.toFixed(0)}ms`,
+      passed: longTasks.maxDuration <= effective,
+    });
+  }
+
+  // Task Count
+  if (thresholds.maxCount > 0) {
+    const effective = calculateEffectiveThreshold(thresholds.maxCount, buffers.maxCount, true);
+    rows.push({
+      name: 'Long Tasks',
+      actual: String(longTasks.count),
+      threshold: `≤ ${effective}`,
+      passed: longTasks.count <= effective,
+    });
   }
 
   return rows;

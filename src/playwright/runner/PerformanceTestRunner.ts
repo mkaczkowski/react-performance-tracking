@@ -25,6 +25,12 @@ import {
   type IterationMetrics,
   type IterationResult,
 } from '../iterations';
+import {
+  captureLongTasks,
+  injectLongTaskObserver,
+  type LongTaskMetrics,
+  resetLongTasks,
+} from '../longTasks';
 import { attachTestResults } from '../metrics/metricsAttachment';
 import {
   type CapturedProfilerState,
@@ -52,6 +58,7 @@ import {
 export type CombinedMetrics = CapturedProfilerState & {
   iterationMetrics?: IterationMetrics;
   lighthouse?: LighthouseMetrics;
+  longTasks?: LongTaskMetrics | null;
 };
 
 /**
@@ -184,6 +191,12 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
     if (this.testInfo.trackWebVitals) {
       await injectWebVitalsObserver(this.page);
       logger.debug('Web vitals tracking enabled');
+    }
+
+    // Inject long task observer if configured (Chromium only, graceful degradation)
+    if (this.testInfo.trackLongTasks) {
+      await injectLongTaskObserver(this.page);
+      logger.debug('Long task tracking enabled');
     }
 
     // Start trace capture if configured (Chromium only)
@@ -373,6 +386,10 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
         if (this.testInfo.trackWebVitals) {
           await resetWebVitals(this.page).catch(() => {});
         }
+        // Reset long tasks for next iteration
+        if (this.testInfo.trackLongTasks) {
+          await resetLongTasks(this.page).catch(() => {});
+        }
       }
     }
 
@@ -386,6 +403,7 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
     const lastResult = iterationResults[iterationResults.length - 1];
     const customMetrics = this.captureCustomMetrics();
     const webVitals = await this.captureWebVitalsIfEnabled();
+    const longTasks = await this.captureLongTasksIfEnabled();
     this.capturedMetrics = {
       sampleCount: aggregatedMetrics.rerenders,
       totalActualDuration: aggregatedMetrics.duration,
@@ -402,6 +420,7 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
           : undefined,
       iterationMetrics: aggregatedMetrics,
       ...(webVitals && { webVitals }),
+      ...(longTasks !== undefined && { longTasks }),
       ...(customMetrics && { customMetrics }),
     };
   }
@@ -525,11 +544,13 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
       : EMPTY_PROFILER_STATE;
     const customMetrics = this.captureCustomMetrics();
     const webVitals = await this.captureWebVitalsIfEnabled();
+    const longTasks = await this.captureLongTasksIfEnabled();
     return {
       ...profilerState,
       ...(fpsMetrics && { fps: fpsMetrics }),
       ...(memoryMetrics && { memory: memoryMetrics }),
       ...(webVitals && { webVitals }),
+      ...(longTasks !== undefined && { longTasks }),
       ...(customMetrics && { customMetrics }),
       // Note: lighthouse metrics are added later in execute() after runLighthouseIfEnabled()
     };
@@ -543,6 +564,18 @@ export class PerformanceTestRunner<T extends BasePerformanceFixtures = BasePerfo
       return await captureWebVitals(this.page);
     } catch (err) {
       logger.warn('Failed to capture web vitals:', err);
+      return null;
+    }
+  }
+
+  private async captureLongTasksIfEnabled(): Promise<LongTaskMetrics | null> {
+    if (!this.testInfo.trackLongTasks) {
+      return null;
+    }
+    try {
+      return await captureLongTasks(this.page);
+    } catch (err) {
+      logger.warn('Failed to capture long tasks:', err);
       return null;
     }
   }

@@ -18,6 +18,11 @@ export type PerformanceConfig = {
       readonly ttfb: number;
       readonly fcp: number;
     };
+    readonly longTasks: {
+      readonly tbt: number;
+      readonly maxDuration: number;
+      readonly maxCount: number;
+    };
   };
   readonly throttling: {
     readonly defaultRate: number;
@@ -38,6 +43,10 @@ export type PerformanceConfig = {
     /** Whether web vitals tracking is enabled by default */
     readonly enabled: boolean;
   };
+  readonly longTasks: {
+    /** Long task threshold in milliseconds (tasks > this are "long") */
+    readonly threshold: number;
+  };
 };
 
 // Freeze nested objects for true immutability
@@ -56,12 +65,19 @@ const webVitalsBuffersConfig = Object.freeze({
   fcp: 20, // additive: threshold + 20% = max allowed
 });
 
+const longTasksBuffersConfig = Object.freeze({
+  tbt: 20, // additive: threshold + 20% = max allowed
+  maxDuration: 20, // additive: threshold + 20% = max allowed
+  maxCount: 20, // additive: threshold + 20% = max allowed
+});
+
 const buffersConfig = Object.freeze({
   duration: 20,
   rerenders: 20,
   fps: 20,
   heapGrowth: 20,
   webVitals: webVitalsBuffersConfig,
+  longTasks: longTasksBuffersConfig,
 });
 
 const throttlingConfig = Object.freeze({
@@ -86,6 +102,11 @@ const webVitalsConfig = Object.freeze({
   enabled: false,
 });
 
+const longTasksConfig = Object.freeze({
+  /** Long task threshold - tasks > 50ms are considered "long" per Web Vitals spec */
+  threshold: 50,
+});
+
 export const PERFORMANCE_CONFIG: PerformanceConfig = Object.freeze({
   get isCI(): boolean {
     return Boolean(process.env.CI);
@@ -98,4 +119,5 @@ export const PERFORMANCE_CONFIG: PerformanceConfig = Object.freeze({
   iterations: iterationsConfig,
   memory: memoryConfig,
   webVitals: webVitalsConfig,
+  longTasks: longTasksConfig,
 });

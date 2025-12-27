@@ -732,6 +732,7 @@ describe('resolveBuffers', () => {
       heapGrowth: 20,
       webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
       lighthouse: 5,
+      longTasks: { tbt: 20, maxDuration: 20, maxCount: 20 },
     });
   });
 

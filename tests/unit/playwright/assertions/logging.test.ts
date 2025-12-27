@@ -5,6 +5,7 @@ import {
   createFPSMetricRow,
   createHeapGrowthMetricRow,
   createLighthouseMetricRows,
+  createLongTasksMetricRows,
   createSamplesMetricRow,
   createWebVitalsMetricRows,
   logBreakdown,
@@ -554,6 +555,132 @@ describe('logging', () => {
 
       expect(rows[0].name).toBe('LH Performance');
       expect(rows[0].passed).toBe(false);
+    });
+  });
+
+  describe('createLongTasksMetricRows', () => {
+    it('should create metric rows for all long task metrics', () => {
+      const rows = createLongTasksMetricRows(
+        {
+          tbt: 150,
+          maxDuration: 200,
+          count: 3,
+          entries: [
+            { duration: 100, startTime: 0, containerType: 'window' },
+            { duration: 150, startTime: 100, containerType: 'window' },
+            { duration: 200, startTime: 250, containerType: 'window' },
+          ],
+        },
+        { tbt: 200, maxDuration: 150, maxCount: 5 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      expect(rows).toHaveLength(3);
+      expect(rows[0].name).toBe('TBT');
+      expect(rows[1].name).toBe('Max Task');
+      expect(rows[2].name).toBe('Long Tasks');
+    });
+
+    it('should format TBT threshold with additive buffer', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 150, maxDuration: 100, count: 2, entries: [] },
+        { tbt: 200, maxDuration: 100, maxCount: 5 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      // 200ms + 20% = 240ms
+      expect(rows[0].threshold).toBe('≤ 240ms');
+    });
+
+    it('should pass TBT when below effective threshold', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 150, maxDuration: 100, count: 2, entries: [] },
+        { tbt: 200, maxDuration: 100, maxCount: 5 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      expect(rows[0].passed).toBe(true);
+    });
+
+    it('should fail TBT when above effective threshold', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 300, maxDuration: 100, count: 2, entries: [] },
+        { tbt: 200, maxDuration: 100, maxCount: 5 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      expect(rows[0].passed).toBe(false);
+    });
+
+    it('should skip TBT row when threshold is 0', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 150, maxDuration: 100, count: 2, entries: [] },
+        { tbt: 0, maxDuration: 100, maxCount: 5 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      expect(rows.find((r) => r.name === 'TBT')).toBeUndefined();
+    });
+
+    it('should skip max duration row when threshold is 0', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 150, maxDuration: 100, count: 2, entries: [] },
+        { tbt: 200, maxDuration: 0, maxCount: 5 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      expect(rows.find((r) => r.name === 'Max Task')).toBeUndefined();
+    });
+
+    it('should skip task count row when threshold is 0', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 150, maxDuration: 100, count: 2, entries: [] },
+        { tbt: 200, maxDuration: 100, maxCount: 0 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      expect(rows.find((r) => r.name === 'Long Tasks')).toBeUndefined();
+    });
+
+    it('should return empty array when all thresholds are 0', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 150, maxDuration: 100, count: 2, entries: [] },
+        { tbt: 0, maxDuration: 0, maxCount: 0 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      expect(rows).toHaveLength(0);
+    });
+
+    it('should handle zero actual values', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 0, maxDuration: 0, count: 0, entries: [] },
+        { tbt: 200, maxDuration: 100, maxCount: 5 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      // Only 2 rows: TBT and Long Tasks (maxDuration skipped when actual is 0)
+      expect(rows).toHaveLength(2);
+      expect(rows[0].name).toBe('TBT');
+      expect(rows[0].actual).toBe('0ms');
+      expect(rows[0].passed).toBe(true);
+      expect(rows[1].name).toBe('Long Tasks');
+      expect(rows[1].actual).toBe('0');
+      expect(rows[1].passed).toBe(true);
+    });
+
+    it('should include Max Task row when there are long tasks', () => {
+      const rows = createLongTasksMetricRows(
+        { tbt: 50, maxDuration: 100, count: 1, entries: [] },
+        { tbt: 200, maxDuration: 150, maxCount: 5 },
+        { tbt: 20, maxDuration: 20, maxCount: 20 },
+      );
+
+      expect(rows).toHaveLength(3);
+      expect(rows[1].name).toBe('Max Task');
+      expect(rows[1].actual).toBe('100ms');
+      // 150 + 20% = 180ms
+      expect(rows[1].threshold).toBe('≤ 180ms');
     });
   });
 

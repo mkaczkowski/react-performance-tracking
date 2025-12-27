@@ -167,10 +167,13 @@ export {
   assertHeapGrowthThreshold,
   assertINPThreshold,
   assertLCPThreshold,
+  assertMaxTaskDurationThreshold,
   assertMemoizationEffectiveness,
   assertMinimumActivity,
   assertPercentileThreshold,
   assertSampleCountThreshold,
+  assertTaskCountThreshold,
+  assertTBTThreshold,
   assertTTFBThreshold,
 } from './assertions/validators';
 
@@ -229,6 +232,9 @@ export {
   resolveLighthouseBuffer,
   resolveLighthouseConfig,
   resolveLighthouseThresholds,
+  resolveLongTaskBuffers,
+  resolveLongTaskThresholds,
+  resolveTrackLongTasks,
 } from './config/configResolver';
 
 export type {
@@ -240,3 +246,18 @@ export type {
   ResolvedLighthouseConfig,
   ResolvedLighthouseThresholds,
 } from './types';
+
+export {
+  captureLongTasks,
+  ensureLongTasksInitialized,
+  hasLongTaskData,
+  injectLongTaskObserver,
+  isLongTasksInitialized,
+  resetLongTasks,
+  type ContainerType,
+  type LongTaskBufferConfig,
+  type LongTaskEntry,
+  type LongTaskMetrics,
+  type LongTaskThresholds,
+  type ResolvedLongTaskThresholds,
+} from './longTasks';

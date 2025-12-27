@@ -3,9 +3,12 @@ import {
   assertDurationThreshold,
   assertFPSThreshold,
   assertHeapGrowthThreshold,
+  assertMaxTaskDurationThreshold,
   assertMemoizationEffectiveness,
   assertMinimumActivity,
   assertSampleCountThreshold,
+  assertTaskCountThreshold,
+  assertTBTThreshold,
 } from '@lib/playwright/assertions/validators';
 
 // Mock @playwright/test expect
@@ -288,6 +291,186 @@ describe('validators', () => {
           bufferPercent: 20,
         }),
       ).not.toThrow();
+    });
+  });
+
+  describe('assertTBTThreshold', () => {
+    it('should pass when TBT is below effective threshold', () => {
+      // threshold 200ms + 20% buffer = 240ms
+      expect(() =>
+        assertTBTThreshold({
+          actual: 100,
+          threshold: 200,
+          bufferPercent: 20,
+        }),
+      ).not.toThrow();
+    });
+
+    it('should pass when TBT equals effective threshold', () => {
+      // threshold 200ms + 20% buffer = 240ms
+      expect(() =>
+        assertTBTThreshold({
+          actual: 240,
+          threshold: 200,
+          bufferPercent: 20,
+        }),
+      ).not.toThrow();
+    });
+
+    it('should fail when TBT exceeds effective threshold', () => {
+      // threshold 200ms + 20% buffer = 240ms
+      expect(() =>
+        assertTBTThreshold({
+          actual: 300,
+          threshold: 200,
+          bufferPercent: 20,
+        }),
+      ).toThrow();
+    });
+
+    it('should handle zero TBT', () => {
+      expect(() =>
+        assertTBTThreshold({
+          actual: 0,
+          threshold: 200,
+          bufferPercent: 20,
+        }),
+      ).not.toThrow();
+    });
+
+    it('should handle zero buffer', () => {
+      expect(() =>
+        assertTBTThreshold({
+          actual: 200,
+          threshold: 200,
+          bufferPercent: 0,
+        }),
+      ).not.toThrow();
+
+      expect(() =>
+        assertTBTThreshold({
+          actual: 201,
+          threshold: 200,
+          bufferPercent: 0,
+        }),
+      ).toThrow();
+    });
+  });
+
+  describe('assertMaxTaskDurationThreshold', () => {
+    it('should pass when max duration is below effective threshold', () => {
+      // threshold 100ms + 20% buffer = 120ms
+      expect(() =>
+        assertMaxTaskDurationThreshold({
+          actual: 80,
+          threshold: 100,
+          bufferPercent: 20,
+        }),
+      ).not.toThrow();
+    });
+
+    it('should pass when max duration equals effective threshold', () => {
+      // threshold 100ms + 20% buffer = 120ms
+      expect(() =>
+        assertMaxTaskDurationThreshold({
+          actual: 120,
+          threshold: 100,
+          bufferPercent: 20,
+        }),
+      ).not.toThrow();
+    });
+
+    it('should fail when max duration exceeds effective threshold', () => {
+      // threshold 100ms + 20% buffer = 120ms
+      expect(() =>
+        assertMaxTaskDurationThreshold({
+          actual: 150,
+          threshold: 100,
+          bufferPercent: 20,
+        }),
+      ).toThrow();
+    });
+
+    it('should calculate effective threshold correctly with buffer', () => {
+      // threshold 150ms + 10% buffer = 165ms
+      expect(() =>
+        assertMaxTaskDurationThreshold({
+          actual: 165,
+          threshold: 150,
+          bufferPercent: 10,
+        }),
+      ).not.toThrow();
+
+      expect(() =>
+        assertMaxTaskDurationThreshold({
+          actual: 166,
+          threshold: 150,
+          bufferPercent: 10,
+        }),
+      ).toThrow();
+    });
+  });
+
+  describe('assertTaskCountThreshold', () => {
+    it('should pass when task count is below effective threshold', () => {
+      // threshold 5 + 20% buffer = 6
+      expect(() =>
+        assertTaskCountThreshold({
+          actual: 3,
+          threshold: 5,
+          bufferPercent: 20,
+        }),
+      ).not.toThrow();
+    });
+
+    it('should pass when task count equals effective threshold', () => {
+      // threshold 5 + 20% buffer = 6
+      expect(() =>
+        assertTaskCountThreshold({
+          actual: 6,
+          threshold: 5,
+          bufferPercent: 20,
+        }),
+      ).not.toThrow();
+    });
+
+    it('should fail when task count exceeds effective threshold', () => {
+      // threshold 5 + 20% buffer = 6
+      expect(() =>
+        assertTaskCountThreshold({
+          actual: 10,
+          threshold: 5,
+          bufferPercent: 20,
+        }),
+      ).toThrow();
+    });
+
+    it('should handle zero task count', () => {
+      expect(() =>
+        assertTaskCountThreshold({
+          actual: 0,
+          threshold: 5,
+          bufferPercent: 20,
+        }),
+      ).not.toThrow();
+    });
+
+    it('should handle zero buffer', () => {
+      expect(() =>
+        assertTaskCountThreshold({
+          actual: 5,
+          threshold: 5,
+          bufferPercent: 0,
+        }),
+      ).not.toThrow();
+
+      expect(() =>
+        assertTaskCountThreshold({
+          actual: 6,
+          threshold: 5,
+          bufferPercent: 0,
+        }),
+      ).toThrow();
     });
   });
 });

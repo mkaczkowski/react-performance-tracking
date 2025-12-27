@@ -1,6 +1,7 @@
 import type { TestInfo } from '@playwright/test';
 
 import type { NetworkThrottlingConfig } from '../features';
+import type { LongTaskBufferConfig, ResolvedLongTaskThresholds } from '../longTasks/types';
 import { type ResolvedTraceExportConfig, resolveTraceExportConfig } from '../trace';
 import type {
   BufferConfig,
@@ -315,6 +316,7 @@ export const resolveThresholds = (config: TestConfig, isCI: boolean): ResolvedTh
     },
     webVitals: resolveWebVitalsThresholds(config, isCI),
     lighthouse: resolveLighthouseThresholds(config, isCI),
+    longTasks: resolveLongTaskThresholds(config, isCI),
   };
 };
 
@@ -332,6 +334,65 @@ export const resolveWebVitalsBuffers = (config: TestConfig): WebVitalsBufferConf
   };
 };
 
+// ============================================
+// Long Tasks Config Resolution
+// ============================================
+
+/**
+ * Check if long task thresholds are configured in base or CI config
+ */
+const hasLongTaskThresholds = (config: TestConfig): boolean => {
+  const base = config.thresholds.base.longTasks;
+  const ci = config.thresholds.ci?.longTasks;
+  return !!(
+    base?.tbt ||
+    base?.maxDuration ||
+    base?.maxCount ||
+    ci?.tbt ||
+    ci?.maxDuration ||
+    ci?.maxCount
+  );
+};
+
+/**
+ * Resolves trackLongTasks setting from config.
+ * Auto-enables when longTasks thresholds are configured.
+ */
+export const resolveTrackLongTasks = (config: TestConfig): boolean => {
+  return hasLongTaskThresholds(config);
+};
+
+/**
+ * Resolves long task thresholds with CI overrides.
+ * 0 means no validation for that metric.
+ */
+export const resolveLongTaskThresholds = (
+  config: TestConfig,
+  isCI: boolean,
+): ResolvedLongTaskThresholds => {
+  const base = config.thresholds.base.longTasks ?? {};
+  const ci = config.thresholds.ci?.longTasks ?? {};
+  const merged = isCI ? { ...base, ...ci } : base;
+
+  return {
+    tbt: merged.tbt ?? 0,
+    maxDuration: merged.maxDuration ?? 0,
+    maxCount: merged.maxCount ?? 0,
+  };
+};
+
+/**
+ * Resolves long task buffer configuration with defaults
+ */
+export const resolveLongTaskBuffers = (config: TestConfig): LongTaskBufferConfig => {
+  const userBuffers = config.buffers?.longTasks;
+  return {
+    tbt: userBuffers?.tbt ?? PERFORMANCE_CONFIG.buffers.longTasks.tbt,
+    maxDuration: userBuffers?.maxDuration ?? PERFORMANCE_CONFIG.buffers.longTasks.maxDuration,
+    maxCount: userBuffers?.maxCount ?? PERFORMANCE_CONFIG.buffers.longTasks.maxCount,
+  };
+};
+
 /**
  * Resolves buffer configuration with defaults
  */
@@ -342,6 +403,7 @@ export const resolveBuffers = (config: TestConfig): BufferConfig => ({
   heapGrowth: config.buffers?.heapGrowth ?? PERFORMANCE_CONFIG.buffers.heapGrowth,
   webVitals: resolveWebVitalsBuffers(config),
   lighthouse: resolveLighthouseBuffer(config),
+  longTasks: resolveLongTaskBuffers(config),
 });
 
 /**
@@ -388,6 +450,7 @@ export const createConfiguredTestInfo = (
   const trackFps = resolveTrackFps(testConfig);
   const trackMemory = resolveTrackMemory(testConfig);
   const trackWebVitals = resolveTrackWebVitals(testConfig);
+  const trackLongTasks = resolveTrackLongTasks(testConfig);
   const throttleRate = resolveThrottleRate(testConfig);
   const name = testConfig.name ?? generateArtifactName(title);
   const warmup = testConfig.warmup ?? isCI;
@@ -406,6 +469,7 @@ export const createConfiguredTestInfo = (
   configuredInfo.trackFps = trackFps;
   configuredInfo.trackMemory = trackMemory;
   configuredInfo.trackWebVitals = trackWebVitals;
+  configuredInfo.trackLongTasks = trackLongTasks;
   configuredInfo.throttleRate = throttleRate;
   configuredInfo.iterations = iterations;
   configuredInfo.networkThrottling = networkThrottling;
@@ -429,6 +493,7 @@ export const addConfigurationAnnotation = (
     trackFps,
     trackMemory,
     trackWebVitals,
+    trackLongTasks,
     iterations,
     networkThrottling,
     exportTrace,
@@ -440,6 +505,7 @@ export const addConfigurationAnnotation = (
   const fpsDescription = trackFps ? 'enabled' : 'disabled';
   const memoryDescription = trackMemory ? 'enabled' : 'disabled';
   const webVitalsDescription = trackWebVitals ? 'enabled' : 'disabled';
+  const longTasksDescription = trackLongTasks ? 'enabled' : 'disabled';
   const lighthouseDescription = lighthouse.enabled ? 'enabled' : 'disabled';
   const networkDescription = networkThrottling
     ? typeof networkThrottling === 'string'
@@ -447,12 +513,12 @@ export const addConfigurationAnnotation = (
       : 'custom'
     : 'disabled';
   const traceDescription = exportTrace.enabled ? 'enabled' : 'disabled';
-  const bufferDescription = `duration=${buffers.duration}%, rerenders=${buffers.rerenders}%${trackFps ? `, fps=${buffers.fps}%` : ''}${trackMemory ? `, heapGrowth=${buffers.heapGrowth}%` : ''}${trackWebVitals ? `, webVitals.lcp=${buffers.webVitals.lcp}%` : ''}${lighthouse.enabled ? `, lighthouse=${buffers.lighthouse}%` : ''}`;
+  const bufferDescription = `duration=${buffers.duration}%, rerenders=${buffers.rerenders}%${trackFps ? `, fps=${buffers.fps}%` : ''}${trackMemory ? `, heapGrowth=${buffers.heapGrowth}%` : ''}${trackWebVitals ? `, webVitals.lcp=${buffers.webVitals.lcp}%` : ''}${trackLongTasks ? `, longTasks.tbt=${buffers.longTasks.tbt}%` : ''}${lighthouse.enabled ? `, lighthouse=${buffers.lighthouse}%` : ''}`;
   const iterationsDescription =
     iterations > 1 ? `${iterations}x${warmup ? ' (first is warmup)' : ''}` : 'single';
 
   testInfo.annotations.push({
     type: 'config',
-    description: `throttle=${throttleDescription}, warmup=${warmupDescription}, fps=${fpsDescription}, memory=${memoryDescription}, webVitals=${webVitalsDescription}, lighthouse=${lighthouseDescription}, network=${networkDescription}, trace=${traceDescription}, iterations=${iterationsDescription}, buffers=${bufferDescription}`,
+    description: `throttle=${throttleDescription}, warmup=${warmupDescription}, fps=${fpsDescription}, memory=${memoryDescription}, webVitals=${webVitalsDescription}, longTasks=${longTasksDescription}, lighthouse=${lighthouseDescription}, network=${networkDescription}, trace=${traceDescription}, iterations=${iterationsDescription}, buffers=${bufferDescription}`,
   });
 };

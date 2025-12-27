@@ -162,10 +162,31 @@ export const createFailingCDPSession = (
 const DEFAULT_PERFORMANCE_CONFIG = {
   throttleRate: 4,
   warmup: false,
-  thresholds: { duration: 500, rerenders: 20, avg: 60 },
-  buffers: { duration: 20, rerenders: 20, avg: 20 },
+  thresholds: {
+    profiler: {
+      '*': { duration: { avg: 500, p50: 0, p95: 0, p99: 0 }, rerenders: 20 },
+    },
+    fps: { avg: 60, p50: 0, p95: 0, p99: 0 },
+    memory: { heapGrowth: 0 },
+    webVitals: { lcp: 0, inp: 0, cls: 0, ttfb: 0, fcp: 0 },
+    lighthouse: { performance: 0, accessibility: 0, bestPractices: 0, seo: 0, pwa: 0 },
+    longTasks: { tbt: 0, maxDuration: 0, maxCount: 0 },
+  },
+  buffers: {
+    duration: 20,
+    rerenders: 20,
+    fps: 20,
+    heapGrowth: 20,
+    webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
+    lighthouse: 5,
+    longTasks: { tbt: 20, maxDuration: 20, maxCount: 20 },
+  },
   name: 'test-performance-data',
   trackFps: false,
+  trackMemory: false,
+  trackWebVitals: false,
+  trackLongTasks: false,
+  iterations: 1,
   exportTrace: { enabled: false },
   lighthouse: { enabled: false, formFactor: 'mobile', categories: [], skipAudits: [] },
 } as const;

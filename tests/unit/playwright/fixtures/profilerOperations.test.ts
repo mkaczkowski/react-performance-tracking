@@ -83,7 +83,7 @@ describe('profilerOperations', () => {
 
       expect(mockPage.waitForFunction).toHaveBeenCalledWith(
         expect.any(Function),
-        { stabilityPeriod: 500 },
+        { stabilityPeriod: 500, needSamples: true },
         { timeout: 3000, polling: 50 },
       );
     });

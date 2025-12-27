@@ -105,6 +105,7 @@ thresholds: {
     fps?: number | FPSThreshold,
     memory?: { heapGrowth?: number },
     webVitals?: { lcp?: number, inp?: number, cls?: number, ttfb?: number, fcp?: number },
+    longTasks?: { tbt?: number, maxDuration?: number, maxCount?: number },
     lighthouse?: { performance?: number, accessibility?: number, bestPractices?: number, seo?: number, pwa?: number },
   },
   ci?: {
@@ -112,6 +113,7 @@ thresholds: {
     fps?: number | FPSThreshold,
     memory?: { heapGrowth?: number },
     webVitals?: { lcp?: number, inp?: number, cls?: number, ttfb?: number, fcp?: number },
+    longTasks?: { ... },
     lighthouse?: { ... },
   },
 }
@@ -131,6 +133,7 @@ buffers: {
   fps: 20,
   heapGrowth: 20,
   webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
+  longTasks: { tbt: 20, maxDuration: 20, maxCount: 20 },
   lighthouse: 5,
 }
 ```
@@ -193,6 +196,16 @@ interface WebVitalsThreshold {
 }
 ```
 
+### LongTasksThreshold
+
+```ts
+interface LongTasksThreshold {
+  tbt?: number;         // ms - Total Blocking Time (sum of blocking time above 50ms)
+  maxDuration?: number; // ms - Maximum duration of any single long task
+  maxCount?: number;    // Maximum number of long tasks allowed
+}
+```
+
 ### LighthouseThreshold
 
 ```ts
@@ -214,6 +227,7 @@ Features are automatically enabled based on threshold configuration:
 | FPS Tracking | `fps` threshold configured | Chromium |
 | Memory Tracking | `memory.heapGrowth` threshold configured | Chromium |
 | Web Vitals | `webVitals` threshold configured | All |
+| Long Tasks | `longTasks` threshold configured | Chromium |
 | Lighthouse | `lighthouse` threshold configured | Chromium |
 
 No explicit flags needed. Lighthouse requires the optional `lighthouse` peer dependency.
@@ -234,6 +248,7 @@ No explicit flags needed. Lighthouse requires the optional `lighthouse` peer dep
 | FPS | Subtractive | 60 - 20% = 48 FPS min |
 | Heap Growth | Additive | 10MB + 20% = 12MB max |
 | Web Vitals | Additive | 2500ms + 20% = 3000ms max |
+| Long Tasks | Additive | 200ms TBT + 20% = 240ms max |
 | Lighthouse | Subtractive | 90 - 5% = 85.5 min score |
 
 ## Example Configurations
