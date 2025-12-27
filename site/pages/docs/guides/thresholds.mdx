@@ -136,9 +136,11 @@ thresholds: {
   base: {
     profiler: { '*': { duration: 500, rerenders: 20 } },
     webVitals: {
-      lcp: 2500,  // Largest Contentful Paint (ms)
-      inp: 200,   // Interaction to Next Paint (ms)
-      cls: 0.1,   // Cumulative Layout Shift (score)
+      lcp: 2500,   // Largest Contentful Paint (ms)
+      inp: 200,    // Interaction to Next Paint (ms)
+      cls: 0.1,    // Cumulative Layout Shift (score)
+      ttfb: 800,   // Time to First Byte (ms)
+      fcp: 1800,   // First Contentful Paint (ms)
     },
   },
 }
@@ -146,11 +148,13 @@ thresholds: {
 
 **Google's recommendations:**
 
-| Metric | Good | Poor |
-|--------|------|------|
-| LCP | ≤2500ms | >4000ms |
-| INP | ≤200ms | >500ms |
-| CLS | ≤0.1 | >0.25 |
+| Metric | Good | Poor | Description |
+|--------|------|------|-------------|
+| LCP | ≤2500ms | >4000ms | Time until largest element renders |
+| INP | ≤200ms | >500ms | Responsiveness to user input |
+| CLS | ≤0.1 | >0.25 | Visual stability score |
+| TTFB | ≤800ms | >1800ms | Server response time |
+| FCP | ≤1800ms | >3000ms | Time until first content renders |
 
 ## Lighthouse Thresholds
 
@@ -204,6 +208,8 @@ test.performance({
       lcp: 20,       // 20% buffer on LCP
       inp: 20,       // 20% buffer on INP
       cls: 20,       // 20% buffer on CLS
+      ttfb: 20,      // 20% buffer on TTFB
+      fcp: 20,       // 20% buffer on FCP
     },
     lighthouse: 5,   // 90 - 5% = 85.5 min score
   },
@@ -269,7 +275,7 @@ test.performance({
       },
       fps: { avg: 55, p95: 45 },
       memory: { heapGrowth: 10 * 1024 * 1024 },
-      webVitals: { lcp: 2500, inp: 200, cls: 0.1 },
+      webVitals: { lcp: 2500, inp: 200, cls: 0.1, ttfb: 800, fcp: 1800 },
       lighthouse: { performance: 90, accessibility: 100 },
     },
     ci: {
