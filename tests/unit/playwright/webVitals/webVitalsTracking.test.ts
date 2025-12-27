@@ -71,6 +71,8 @@ describe('webVitalsTracking', () => {
         lcp: 1500,
         inp: 100,
         cls: 0.05,
+        ttfb: 400,
+        fcp: 900,
       };
 
       vi.mocked(mockPage.evaluate).mockResolvedValue(mockWebVitals);
@@ -93,6 +95,8 @@ describe('webVitalsTracking', () => {
         lcp: null,
         inp: null,
         cls: null,
+        ttfb: null,
+        fcp: null,
       };
 
       vi.mocked(mockPage.evaluate).mockResolvedValue(mockWebVitals);
@@ -107,6 +111,8 @@ describe('webVitalsTracking', () => {
         lcp: 2000,
         inp: null,
         cls: null,
+        ttfb: null,
+        fcp: null,
       };
 
       vi.mocked(mockPage.evaluate).mockResolvedValue(mockWebVitals);
@@ -148,27 +154,27 @@ describe('webVitalsTracking', () => {
 
   describe('hasWebVitalsData', () => {
     it('should return true when LCP is present', () => {
-      const metrics: WebVitalsMetrics = { lcp: 1500, inp: null, cls: null };
+      const metrics: WebVitalsMetrics = { lcp: 1500, inp: null, cls: null, ttfb: null, fcp: null };
       expect(hasWebVitalsData(metrics)).toBe(true);
     });
 
     it('should return true when INP is present', () => {
-      const metrics: WebVitalsMetrics = { lcp: null, inp: 100, cls: null };
+      const metrics: WebVitalsMetrics = { lcp: null, inp: 100, cls: null, ttfb: null, fcp: null };
       expect(hasWebVitalsData(metrics)).toBe(true);
     });
 
     it('should return true when CLS is present', () => {
-      const metrics: WebVitalsMetrics = { lcp: null, inp: null, cls: 0.05 };
+      const metrics: WebVitalsMetrics = { lcp: null, inp: null, cls: 0.05, ttfb: null, fcp: null };
       expect(hasWebVitalsData(metrics)).toBe(true);
     });
 
     it('should return true when all metrics are present', () => {
-      const metrics: WebVitalsMetrics = { lcp: 1500, inp: 100, cls: 0.05 };
+      const metrics: WebVitalsMetrics = { lcp: 1500, inp: 100, cls: 0.05, ttfb: 400, fcp: 900 };
       expect(hasWebVitalsData(metrics)).toBe(true);
     });
 
     it('should return false when all metrics are null', () => {
-      const metrics: WebVitalsMetrics = { lcp: null, inp: null, cls: null };
+      const metrics: WebVitalsMetrics = { lcp: null, inp: null, cls: null, ttfb: null, fcp: null };
       expect(hasWebVitalsData(metrics)).toBe(false);
     });
 

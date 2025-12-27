@@ -41,6 +41,7 @@ import {
 import {
   assertCLSThreshold,
   assertDurationThreshold,
+  assertFCPThreshold,
   assertFPSThreshold,
   assertHeapGrowthThreshold,
   assertINPThreshold,
@@ -49,6 +50,7 @@ import {
   assertMinimumActivity,
   assertPercentileThreshold,
   assertSampleCountThreshold,
+  assertTTFBThreshold,
 } from './validators';
 
 /**
@@ -357,7 +359,7 @@ const runWebVitalsAssertions = (
   thresholds: ResolvedThresholdValues['webVitals'],
   buffers: BufferConfig['webVitals'],
 ): void => {
-  const { lcp, inp, cls } = webVitals;
+  const { lcp, inp, cls, ttfb, fcp } = webVitals;
 
   if (lcp !== null && thresholds.lcp > 0) {
     assertLCPThreshold({ actual: lcp, threshold: thresholds.lcp, bufferPercent: buffers.lcp });
@@ -369,6 +371,14 @@ const runWebVitalsAssertions = (
 
   if (cls !== null && thresholds.cls > 0) {
     assertCLSThreshold({ actual: cls, threshold: thresholds.cls, bufferPercent: buffers.cls });
+  }
+
+  if (ttfb !== null && thresholds.ttfb > 0) {
+    assertTTFBThreshold({ actual: ttfb, threshold: thresholds.ttfb, bufferPercent: buffers.ttfb });
+  }
+
+  if (fcp !== null && thresholds.fcp > 0) {
+    assertFCPThreshold({ actual: fcp, threshold: thresholds.fcp, bufferPercent: buffers.fcp });
   }
 };
 

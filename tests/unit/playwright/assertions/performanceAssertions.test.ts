@@ -109,7 +109,7 @@ vi.mock('@lib/playwright/assertions/validators', () => ({
 const DEFAULT_DURATION_THRESHOLDS = { avg: 500, p50: 0, p95: 0, p99: 0 };
 const DEFAULT_FPS_THRESHOLDS = { avg: 60, p50: 0, p95: 0, p99: 0 };
 const DEFAULT_MEMORY_THRESHOLDS = { heapGrowth: 0 };
-const DEFAULT_WEBVITALS_THRESHOLDS = { lcp: 0, inp: 0, cls: 0 };
+const DEFAULT_WEBVITALS_THRESHOLDS = { lcp: 0, inp: 0, cls: 0, ttfb: 0, fcp: 0 };
 const DEFAULT_LIGHTHOUSE_THRESHOLDS = {
   performance: 0,
   accessibility: 0,
@@ -131,7 +131,7 @@ const DEFAULT_BUFFERS = {
   rerenders: 20,
   fps: 20,
   heapGrowth: 20,
-  webVitals: { lcp: 20, inp: 20, cls: 20 },
+  webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
   lighthouse: 5,
 };
 

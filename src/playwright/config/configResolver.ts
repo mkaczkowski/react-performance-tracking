@@ -113,6 +113,8 @@ export const resolveWebVitalsThresholds = (
     lcp: mergedWebVitals.lcp ?? 0,
     inp: mergedWebVitals.inp ?? 0,
     cls: mergedWebVitals.cls ?? 0,
+    ttfb: mergedWebVitals.ttfb ?? 0,
+    fcp: mergedWebVitals.fcp ?? 0,
   };
 };
 
@@ -325,6 +327,8 @@ export const resolveWebVitalsBuffers = (config: TestConfig): WebVitalsBufferConf
     lcp: userBuffers?.lcp ?? PERFORMANCE_CONFIG.buffers.webVitals.lcp,
     inp: userBuffers?.inp ?? PERFORMANCE_CONFIG.buffers.webVitals.inp,
     cls: userBuffers?.cls ?? PERFORMANCE_CONFIG.buffers.webVitals.cls,
+    ttfb: userBuffers?.ttfb ?? PERFORMANCE_CONFIG.buffers.webVitals.ttfb,
+    fcp: userBuffers?.fcp ?? PERFORMANCE_CONFIG.buffers.webVitals.fcp,
   };
 };
 

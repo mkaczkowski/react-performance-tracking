@@ -648,6 +648,28 @@ export const createWebVitalsMetricRows = (
     });
   }
 
+  // TTFB
+  if (webVitals.ttfb !== null && thresholds.ttfb > 0) {
+    const effective = calculateEffectiveThreshold(thresholds.ttfb, buffers.ttfb);
+    rows.push({
+      name: 'TTFB',
+      actual: `${webVitals.ttfb.toFixed(0)}ms`,
+      threshold: `≤ ${effective.toFixed(0)}ms`,
+      passed: webVitals.ttfb <= effective,
+    });
+  }
+
+  // FCP
+  if (webVitals.fcp !== null && thresholds.fcp > 0) {
+    const effective = calculateEffectiveThreshold(thresholds.fcp, buffers.fcp);
+    rows.push({
+      name: 'FCP',
+      actual: `${webVitals.fcp.toFixed(0)}ms`,
+      threshold: `≤ ${effective.toFixed(0)}ms`,
+      passed: webVitals.fcp <= effective,
+    });
+  }
+
   return rows;
 };
 

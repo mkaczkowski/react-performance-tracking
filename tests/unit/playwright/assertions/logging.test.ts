@@ -410,25 +410,29 @@ describe('logging', () => {
   describe('createWebVitalsMetricRows', () => {
     it('should create metric rows for web vitals with thresholds', () => {
       const rows = createWebVitalsMetricRows(
-        { lcp: 1250, inp: 45, cls: 0.05 },
-        { lcp: 2500, inp: 200, cls: 0.1 },
-        { lcp: 20, inp: 20, cls: 20 },
+        { lcp: 1250, inp: 45, cls: 0.05, ttfb: 400, fcp: 900 },
+        { lcp: 2500, inp: 200, cls: 0.1, ttfb: 800, fcp: 1800 },
+        { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
       );
 
-      expect(rows).toHaveLength(3);
+      expect(rows).toHaveLength(5);
       expect(rows[0].name).toBe('LCP');
       expect(rows[0].passed).toBe(true);
       expect(rows[1].name).toBe('INP');
       expect(rows[1].passed).toBe(true);
       expect(rows[2].name).toBe('CLS');
       expect(rows[2].passed).toBe(true);
+      expect(rows[3].name).toBe('TTFB');
+      expect(rows[3].passed).toBe(true);
+      expect(rows[4].name).toBe('FCP');
+      expect(rows[4].passed).toBe(true);
     });
 
     it('should skip web vitals with zero thresholds', () => {
       const rows = createWebVitalsMetricRows(
-        { lcp: 1250, inp: 45, cls: 0.05 },
-        { lcp: 0, inp: 200, cls: 0 },
-        { lcp: 20, inp: 20, cls: 20 },
+        { lcp: 1250, inp: 45, cls: 0.05, ttfb: 400, fcp: 900 },
+        { lcp: 0, inp: 200, cls: 0, ttfb: 0, fcp: 0 },
+        { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
       );
 
       expect(rows).toHaveLength(1);
@@ -437,9 +441,9 @@ describe('logging', () => {
 
     it('should skip null web vitals', () => {
       const rows = createWebVitalsMetricRows(
-        { lcp: null, inp: 45, cls: null },
-        { lcp: 2500, inp: 200, cls: 0.1 },
-        { lcp: 20, inp: 20, cls: 20 },
+        { lcp: null, inp: 45, cls: null, ttfb: null, fcp: null },
+        { lcp: 2500, inp: 200, cls: 0.1, ttfb: 800, fcp: 1800 },
+        { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
       );
 
       expect(rows).toHaveLength(1);

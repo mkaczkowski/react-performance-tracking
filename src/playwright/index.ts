@@ -162,6 +162,7 @@ export {
 export {
   assertCLSThreshold,
   assertDurationThreshold,
+  assertFCPThreshold,
   assertFPSThreshold,
   assertHeapGrowthThreshold,
   assertINPThreshold,
@@ -170,6 +171,7 @@ export {
   assertMinimumActivity,
   assertPercentileThreshold,
   assertSampleCountThreshold,
+  assertTTFBThreshold,
 } from './assertions/validators';
 
 export { PerformanceTestRunner, type CombinedMetrics } from './runner/PerformanceTestRunner';

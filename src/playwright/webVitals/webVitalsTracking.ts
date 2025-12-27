@@ -16,6 +16,8 @@ interface WebVitalsStore {
   lcp: number | null;
   inp: number | null;
   cls: number;
+  ttfb: number | null;
+  fcp: number | null;
   initialized: boolean;
 }
 
@@ -40,6 +42,8 @@ const createWebVitalsSetupScript = (): (() => void) => {
       lcp: number | null;
       inp: number | null;
       cls: number;
+      ttfb: number | null;
+      fcp: number | null;
       initialized: boolean;
     }
 
@@ -56,6 +60,8 @@ const createWebVitalsSetupScript = (): (() => void) => {
       lcp: null,
       inp: null,
       cls: 0,
+      ttfb: null,
+      fcp: null,
       initialized: true,
     };
     (window as WindowWithStore)[STORE_KEY] = store;
@@ -144,6 +150,30 @@ const createWebVitalsSetupScript = (): (() => void) => {
     } catch {
       // CLS not supported - silently ignore
     }
+
+    // FCP Observer - First Contentful Paint
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.name === 'first-contentful-paint') {
+            store.fcp = entry.startTime;
+          }
+        }
+      }).observe({ type: 'paint', buffered: true });
+    } catch {
+      // paint entries not supported - silently ignore
+    }
+
+    // TTFB - Time to First Byte (from Navigation Timing API)
+    try {
+      const navEntries = performance.getEntriesByType('navigation');
+      if (navEntries.length > 0) {
+        const navEntry = navEntries[0] as PerformanceNavigationTiming;
+        store.ttfb = navEntry.responseStart;
+      }
+    } catch {
+      // Navigation Timing not supported - silently ignore
+    }
   };
 };
 
@@ -196,6 +226,8 @@ export const captureWebVitals = async (page: Page): Promise<WebVitalsMetrics | n
         lcp: number | null;
         inp: number | null;
         cls: number;
+        ttfb: number | null;
+        fcp: number | null;
         initialized: boolean;
       };
     };
@@ -211,6 +243,8 @@ export const captureWebVitals = async (page: Page): Promise<WebVitalsMetrics | n
       inp: store.inp,
       // Return null for cls if no shifts occurred (0 is the initial value)
       cls: store.cls > 0 ? store.cls : null,
+      ttfb: store.ttfb,
+      fcp: store.fcp,
     };
   });
 };
@@ -228,6 +262,8 @@ export const resetWebVitals = async (page: Page): Promise<void> => {
       store.lcp = null;
       store.inp = null;
       store.cls = 0;
+      store.ttfb = null;
+      store.fcp = null;
     }
   });
   logger.debug('Web vitals metrics reset');
@@ -254,5 +290,11 @@ export const isWebVitalsInitialized = async (page: Page): Promise<boolean> => {
  */
 export const hasWebVitalsData = (metrics: WebVitalsMetrics | null): metrics is WebVitalsMetrics => {
   if (!metrics) return false;
-  return metrics.lcp !== null || metrics.inp !== null || metrics.cls !== null;
+  return (
+    metrics.lcp !== null ||
+    metrics.inp !== null ||
+    metrics.cls !== null ||
+    metrics.ttfb !== null ||
+    metrics.fcp !== null
+  );
 };

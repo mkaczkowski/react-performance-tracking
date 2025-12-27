@@ -11,6 +11,10 @@ export type WebVitalsMetrics = {
   inp: Milliseconds | null;
   /** Cumulative Layout Shift - visual stability score (unitless, 0-1+) */
   cls: number | null;
+  /** Time to First Byte - server response time (ms) */
+  ttfb: Milliseconds | null;
+  /** First Contentful Paint - time until first content renders (ms) */
+  fcp: Milliseconds | null;
 };
 
 /**
@@ -24,6 +28,10 @@ export type WebVitalsThresholds = {
   inp?: Milliseconds;
   /** Maximum allowed CLS score (Google recommends ≤0.1) */
   cls?: number;
+  /** Maximum allowed TTFB in milliseconds (Google recommends ≤800ms) */
+  ttfb?: Milliseconds;
+  /** Maximum allowed FCP in milliseconds (Google recommends ≤1800ms) */
+  fcp?: Milliseconds;
 };
 
 /**
@@ -34,6 +42,8 @@ export type ResolvedWebVitalsThresholds = {
   lcp: Milliseconds;
   inp: Milliseconds;
   cls: number;
+  ttfb: Milliseconds;
+  fcp: Milliseconds;
 };
 
 /**
@@ -44,6 +54,8 @@ export type WebVitalsBufferConfig = {
   lcp: Percentage;
   inp: Percentage;
   cls: Percentage;
+  ttfb: Percentage;
+  fcp: Percentage;
 };
 
 /**
@@ -53,6 +65,8 @@ export const DEFAULT_WEB_VITALS_THRESHOLDS: ResolvedWebVitalsThresholds = {
   lcp: 0,
   inp: 0,
   cls: 0,
+  ttfb: 0,
+  fcp: 0,
 };
 
 /**
@@ -62,4 +76,6 @@ export const DEFAULT_WEB_VITALS_BUFFERS: WebVitalsBufferConfig = {
   lcp: 20,
   inp: 20,
   cls: 20,
+  ttfb: 20,
+  fcp: 20,
 };

@@ -254,6 +254,8 @@ describe('resolveWebVitalsThresholds', () => {
       lcp: 0,
       inp: 0,
       cls: 0,
+      ttfb: 0,
+      fcp: 0,
     });
   });
 
@@ -267,6 +269,8 @@ describe('resolveWebVitalsThresholds', () => {
       lcp: 2500,
       inp: 200,
       cls: 0.1,
+      ttfb: 0,
+      fcp: 0,
     });
   });
 
@@ -281,6 +285,8 @@ describe('resolveWebVitalsThresholds', () => {
       lcp: 3000,
       inp: 200,
       cls: 0.1,
+      ttfb: 0,
+      fcp: 0,
     });
   });
 
@@ -295,6 +301,8 @@ describe('resolveWebVitalsThresholds', () => {
       lcp: 3000,
       inp: 0,
       cls: 0,
+      ttfb: 0,
+      fcp: 0,
     });
   });
 });
@@ -534,16 +542,16 @@ describe('resolveWebVitalsBuffers', () => {
       thresholds: { base: { profiler: {} } },
     };
     const result = resolveWebVitalsBuffers(config);
-    expect(result).toEqual({ lcp: 20, inp: 20, cls: 20 });
+    expect(result).toEqual({ lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 });
   });
 
   it('should override specific buffers', () => {
     const config: TestConfig = {
       thresholds: { base: { profiler: {} } },
-      buffers: { webVitals: { lcp: 10, inp: 15, cls: 25 } },
+      buffers: { webVitals: { lcp: 10, inp: 15, cls: 25, ttfb: 30, fcp: 35 } },
     };
     const result = resolveWebVitalsBuffers(config);
-    expect(result).toEqual({ lcp: 10, inp: 15, cls: 25 });
+    expect(result).toEqual({ lcp: 10, inp: 15, cls: 25, ttfb: 30, fcp: 35 });
   });
 });
 
@@ -722,7 +730,7 @@ describe('resolveBuffers', () => {
       rerenders: 20,
       fps: 20,
       heapGrowth: 20,
-      webVitals: { lcp: 20, inp: 20, cls: 20 },
+      webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
       lighthouse: 5,
     });
   });
@@ -890,7 +898,7 @@ describe('addConfigurationAnnotation', () => {
         rerenders: 20,
         fps: 20,
         heapGrowth: 20,
-        webVitals: { lcp: 20, inp: 20, cls: 20 },
+        webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
         lighthouse: 5,
       },
       trackFps: true,
@@ -925,7 +933,7 @@ describe('addConfigurationAnnotation', () => {
         rerenders: 20,
         fps: 20,
         heapGrowth: 20,
-        webVitals: { lcp: 20, inp: 20, cls: 20 },
+        webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
         lighthouse: 5,
       },
       trackFps: false,
@@ -957,7 +965,7 @@ describe('addConfigurationAnnotation', () => {
         rerenders: 20,
         fps: 20,
         heapGrowth: 20,
-        webVitals: { lcp: 20, inp: 20, cls: 20 },
+        webVitals: { lcp: 20, inp: 20, cls: 20, ttfb: 20, fcp: 20 },
         lighthouse: 5,
       },
       trackFps: false,

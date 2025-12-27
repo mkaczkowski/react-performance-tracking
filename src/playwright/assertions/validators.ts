@@ -218,6 +218,54 @@ export const assertCLSThreshold = ({
 };
 
 /**
+ * Parameters for TTFB threshold assertion.
+ */
+type TTFBThresholdParams = BaseThresholdParams<Milliseconds>;
+
+/**
+ * Validates TTFB (Time to First Byte) is within threshold.
+ * Buffer is additive (threshold + buffer% = max allowed).
+ */
+export const assertTTFBThreshold = ({
+  actual,
+  threshold,
+  bufferPercent,
+}: TTFBThresholdParams): void => {
+  const effective = calculateEffectiveThreshold(threshold, bufferPercent);
+
+  expect(
+    actual,
+    `TTFB should be ≤${effective.toFixed(1)}ms ` +
+      `(actual: ${actual.toFixed(2)}ms, ` +
+      `threshold: ${threshold}ms + ${bufferPercent}% buffer)`,
+  ).toBeLessThanOrEqual(effective);
+};
+
+/**
+ * Parameters for FCP threshold assertion.
+ */
+type FCPThresholdParams = BaseThresholdParams<Milliseconds>;
+
+/**
+ * Validates FCP (First Contentful Paint) is within threshold.
+ * Buffer is additive (threshold + buffer% = max allowed).
+ */
+export const assertFCPThreshold = ({
+  actual,
+  threshold,
+  bufferPercent,
+}: FCPThresholdParams): void => {
+  const effective = calculateEffectiveThreshold(threshold, bufferPercent);
+
+  expect(
+    actual,
+    `FCP should be ≤${effective.toFixed(1)}ms ` +
+      `(actual: ${actual.toFixed(2)}ms, ` +
+      `threshold: ${threshold}ms + ${bufferPercent}% buffer)`,
+  ).toBeLessThanOrEqual(effective);
+};
+
+/**
  * Parameters for percentile threshold assertion.
  * Extends base params with percentile level name for error messaging.
  */

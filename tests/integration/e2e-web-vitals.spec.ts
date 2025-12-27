@@ -59,4 +59,52 @@ test.describe('E2E Web Vitals Tests', () => {
       await page.waitForTimeout(50);
     });
   });
+
+  test.describe('Performance test with TTFB and FCP thresholds', () => {
+    test.performance({
+      warmup: false,
+      throttleRate: 1,
+      thresholds: {
+        base: {
+          profiler: { '*': { duration: { avg: 1000 }, rerenders: 50 } },
+          webVitals: {
+            ttfb: 5000, // Generous TTFB threshold for test
+            fcp: 5000, // Generous FCP threshold for test
+          },
+        },
+      },
+    })('should track TTFB and FCP metrics', async ({ page, performance }) => {
+      await page.goto(scenario('web-vitals'));
+      await performance.init();
+
+      // Wait for metrics to be captured
+      await page.waitForTimeout(100);
+    });
+  });
+
+  test.describe('Performance test with all web vitals', () => {
+    test.performance({
+      warmup: false,
+      throttleRate: 1,
+      thresholds: {
+        base: {
+          profiler: { '*': { duration: { avg: 1000 }, rerenders: 50 } },
+          webVitals: {
+            lcp: 10000,
+            inp: 1000,
+            cls: 1.0,
+            ttfb: 5000,
+            fcp: 5000,
+          },
+        },
+      },
+    })('should track all web vitals including TTFB and FCP', async ({ page, performance }) => {
+      await page.goto(scenario('web-vitals'));
+      await performance.init();
+
+      // Click the button to trigger INP measurement
+      await page.click('#click-me');
+      await page.waitForTimeout(100);
+    });
+  });
 });

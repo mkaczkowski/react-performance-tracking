@@ -174,28 +174,28 @@ describe('profilerState', () => {
   describe('hasWebVitals', () => {
     it('should return true when lcp is present', () => {
       const state = createMockProfilerState({
-        webVitals: { lcp: 1500, inp: null, cls: null },
+        webVitals: { lcp: 1500, inp: null, cls: null, ttfb: null, fcp: null },
       });
       expect(hasWebVitals(state)).toBe(true);
     });
 
     it('should return true when inp is present', () => {
       const state = createMockProfilerState({
-        webVitals: { lcp: null, inp: 100, cls: null },
+        webVitals: { lcp: null, inp: 100, cls: null, ttfb: null, fcp: null },
       });
       expect(hasWebVitals(state)).toBe(true);
     });
 
     it('should return true when cls is present', () => {
       const state = createMockProfilerState({
-        webVitals: { lcp: null, inp: null, cls: 0.05 },
+        webVitals: { lcp: null, inp: null, cls: 0.05, ttfb: null, fcp: null },
       });
       expect(hasWebVitals(state)).toBe(true);
     });
 
     it('should return true when all web vitals are present', () => {
       const state = createMockProfilerState({
-        webVitals: { lcp: 1500, inp: 100, cls: 0.05 },
+        webVitals: { lcp: 1500, inp: 100, cls: 0.05, ttfb: 400, fcp: 900 },
       });
       expect(hasWebVitals(state)).toBe(true);
     });
@@ -207,7 +207,7 @@ describe('profilerState', () => {
 
     it('should return false when all metrics are null', () => {
       const state = createMockProfilerState({
-        webVitals: { lcp: null, inp: null, cls: null },
+        webVitals: { lcp: null, inp: null, cls: null, ttfb: null, fcp: null },
       });
       expect(hasWebVitals(state)).toBe(false);
     });

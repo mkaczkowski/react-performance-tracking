@@ -15,6 +15,8 @@ export type PerformanceConfig = {
       readonly lcp: number;
       readonly inp: number;
       readonly cls: number;
+      readonly ttfb: number;
+      readonly fcp: number;
     };
   };
   readonly throttling: {
@@ -50,6 +52,8 @@ const webVitalsBuffersConfig = Object.freeze({
   lcp: 20, // additive: threshold + 20% = max allowed
   inp: 20, // additive: threshold + 20% = max allowed
   cls: 20, // additive: threshold + 20% = max allowed
+  ttfb: 20, // additive: threshold + 20% = max allowed
+  fcp: 20, // additive: threshold + 20% = max allowed
 });
 
 const buffersConfig = Object.freeze({
